@@ -53,11 +53,19 @@ public class FoodParser {
         }
 
         int depth = 0;
+        boolean inString = false;
+        boolean escaped = false;
         for (int i = openIndex; i < text.length(); i++) {
             char c = text.charAt(i);
-            if (c == '[') {
+            if (escaped) {
+                escaped = false;
+            } else if (c == '\\') {
+                escaped = true;
+            } else if (c == '"') {
+                inString = !inString;
+            } else if (!inString && c == '[') {
                 depth++;
-            } else if (c == ']') {
+            } else if (!inString && c == ']') {
                 depth--;
                 if (depth == 0) {
                     return i;
@@ -78,15 +86,23 @@ public class FoodParser {
         List<String> objects = new ArrayList<>();
         int depth = 0;
         int objectStart = -1;
+        boolean inString = false;
+        boolean escaped = false;
 
         for (int i = 0; i < arrayBody.length(); i++) {
             char c = arrayBody.charAt(i);
-            if (c == '{') {
+            if (escaped) {
+                escaped = false;
+            } else if (c == '\\') {
+                escaped = true;
+            } else if (c == '"') {
+                inString = !inString;
+            } else if (!inString && c == '{') {
                 if (depth == 0) {
                     objectStart = i;
                 }
                 depth++;
-            } else if (c == '}') {
+            } else if (!inString && c == '}') {
                 depth--;
                 if (depth == 0 && objectStart != -1) {
                     objects.add(arrayBody.substring(objectStart, i + 1));
