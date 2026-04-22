@@ -8,24 +8,24 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Handles communication with the USDA FoodData Central search endpoint.
+ * Sends requests to the USDA FoodData Central API.
  */
 public class FoodApiClient {
-    /** API key used to authenticate search requests. */
+    /** API key required by the USDA service. */
     private final String apiKey;
 
-    /** Base URL for the food search endpoint. */
+    /** Search endpoint URL. */
     private final String baseUrl;
 
-    /** Number of items requested per search call. */
+    /** Number of foods to ask for in one request. */
     private final int pageSize;
 
     /**
-     * Constructs an API client with configuration values.
+     * Creates an API client with settings.
      *
-     * @param apiKey API key for FoodData Central
-     * @param baseUrl endpoint for search requests
-     * @param pageSize number of results per request
+     * @param apiKey key for API access
+     * @param baseUrl search URL
+     * @param pageSize number of results to request
      */
     public FoodApiClient(String apiKey, String baseUrl, int pageSize) {
         this.apiKey = apiKey;
@@ -34,11 +34,11 @@ public class FoodApiClient {
     }
 
     /**
-     * Requests foods matching the given query and returns raw JSON.
+     * Calls the API and returns raw JSON text.
      *
-     * @param query user-entered search text
-     * @return raw JSON response text
-     * @throws IOException if the API call fails
+     * @param query food name to search for
+     * @return raw JSON response from the API
+     * @throws IOException if the request fails
      */
     public String fetchFoodsJson(String query) throws IOException {
         String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);

@@ -1,18 +1,18 @@
 /**
- * Represents one food returned by a FoodData Central search.
+ * Stores one food item from the search results.
  */
 public class FoodResult {
-    /** Unique FoodData Central identifier for this food. */
+    /** USDA FoodData Central ID for this food. */
     private final int fdcId;
 
-    /** Human-readable description of the food. */
+    /** Food name/description shown to the user. */
     private final String description;
 
     /**
-     * Constructs a food result.
+     * Creates one food result object.
      *
-     * @param fdcId the FoodData Central ID
-     * @param description the food description text
+     * @param fdcId USDA ID for the food
+     * @param description name/description of the food
      */
     public FoodResult(int fdcId, String description) {
         this.fdcId = fdcId;
@@ -20,27 +20,27 @@ public class FoodResult {
     }
 
     /**
-     * Gets the FoodData Central ID.
+     * Returns the USDA ID.
      *
-     * @return the FDC ID
+     * @return food ID number
      */
     public int getFdcId() {
         return fdcId;
     }
 
     /**
-     * Gets the food description.
+     * Returns the food description.
      *
-     * @return the description text
+     * @return food name text
      */
     public String getDescription() {
         return description;
     }
 
     /**
-     * Builds a readable display string for console output.
+     * Creates the line shown in console results.
      *
-     * @return formatted result string
+     * @return formatted food result text
      */
     @Override
     public String toString() {

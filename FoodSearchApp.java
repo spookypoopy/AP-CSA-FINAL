@@ -3,30 +3,28 @@ import java.util.List;
 import java.util.Scanner;
 
 /**
- * Provides a simple console-based food search app using the USDA FoodData Central API.
+ * Main class for the console food search program.
  *
- * <p>This class is intentionally written with straightforward Java constructs so it stays at an
- * AP Computer Science A level. A user enters a food name, and the program prints similar matches
- * returned by the API.</p>
+ * <p>The user types a food name, and this program prints matching foods from the USDA API.</p>
  */
 public class FoodSearchApp {
-    /** API key used to authenticate requests to the FoodData Central service. */
+    /** API key used to call the USDA FoodData Central service. */
     private static final String API_KEY = "Q1UShxczUX0Ri9gRRVDe2gPyoCB4KomIKQYzytAZ";
 
-    /** Base endpoint for the FoodData Central food search operation. */
+    /** URL for the USDA food search endpoint. */
     private static final String BASE_URL = "https://api.nal.usda.gov/fdc/v1/foods/search";
 
-    /** Number of foods requested per search call. */
+    /** How many results to request from the API each time. */
     private static final int PAGE_SIZE = 20;
 
-    /** Client used to fetch raw food data from the API. */
+    /** Object that sends HTTP requests to the API. */
     private final FoodApiClient apiClient;
 
-    /** Parser used to convert JSON text into food result objects. */
+    /** Object that converts JSON text into FoodResult objects. */
     private final FoodParser parser;
 
     /**
-     * Constructs an app with default API settings.
+     * Builds the app and sets up helper objects.
      */
     public FoodSearchApp() {
         apiClient = new FoodApiClient(API_KEY, BASE_URL, PAGE_SIZE);
@@ -34,11 +32,11 @@ public class FoodSearchApp {
     }
 
     /**
-     * Searches for foods that match the user's query text.
+     * Searches for foods that match the user's text.
      *
-     * @param query the food text to search for
-     * @return a list of matching food results
-     * @throws IOException if the HTTP request fails or the API is unavailable
+     * @param query food name typed by the user
+     * @return list of matching foods
+     * @throws IOException if the API request fails
      */
     public List<FoodResult> searchFoods(String query) throws IOException {
         String jsonResponse = apiClient.fetchFoodsJson(query);
@@ -46,9 +44,41 @@ public class FoodSearchApp {
     }
 
     /**
-     * Runs the console app loop.
+     * Builds a 2D table of result data for clean console output.
      *
-     * @param args command-line arguments (not used)
+     * <p>Rows represent foods and columns represent: index, FDC ID, and description.</p>
+     *
+     * @param results foods found by the API
+     * @return 2D array of display data
+     */
+    private String[][] buildResultsTable(List<FoodResult> results) {
+        String[][] table = new String[results.size()][3];
+
+        for (int i = 0; i < results.size(); i++) {
+            FoodResult food = results.get(i);
+            table[i][0] = String.valueOf(i + 1);
+            table[i][1] = String.valueOf(food.getFdcId());
+            table[i][2] = food.getDescription();
+        }
+
+        return table;
+    }
+
+    /**
+     * Prints rows from the 2D results table.
+     *
+     * @param table result table with index, FDC ID, and description columns
+     */
+    private void printResultsTable(String[][] table) {
+        for (int i = 0; i < table.length; i++) {
+            System.out.println(table[i][0] + ". " + table[i][2] + " (FDC ID: " + table[i][1] + ")");
+        }
+    }
+
+    /**
+     * Starts the console loop for user input.
+     *
+     * @param args command-line arguments (not used in this app)
      */
     public static void main(String[] args) {
         FoodSearchApp app = new FoodSearchApp();
@@ -73,9 +103,8 @@ public class FoodSearchApp {
                         System.out.println("No matching foods found.");
                     } else {
                         System.out.println("Matches:");
-                        for (int i = 0; i < results.size(); i++) {
-                            System.out.println((i + 1) + ". " + results.get(i));
-                        }
+                        String[][] resultTable = app.buildResultsTable(results);
+                        app.printResultsTable(resultTable);
                     }
                 } catch (IOException e) {
                     System.out.println("Error while searching foods: " + e.getMessage());

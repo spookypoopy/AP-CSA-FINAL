@@ -2,74 +2,83 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Parses FoodData Central JSON into application-friendly objects.
+ * Reads JSON text from the API and builds FoodResult objects.
  */
 public class FoodParser {
+    /** Text that appears before each food ID value in JSON. */
+    private static final String FDC_ID_KEY = "\"fdcId\":";
+
+    /** Text that appears before each food description in JSON. */
+    private static final String DESCRIPTION_KEY = "\"description\":\"";
+
     /**
-     * Parses JSON text and builds a list of food results.
+     * Builds a list of foods by scanning the JSON string.
      *
-     * @param json raw API response text
-     * @return list of parsed food items
+     * @param json raw JSON from the API
+     * @return list of foods found in the JSON
      */
     public List<FoodResult> parseFoods(String json) {
         List<FoodResult> results = new ArrayList<>();
 
-        int foodsStart = json.indexOf("\"foods\":[");
-        if (foodsStart == -1) {
-            return results;
-        }
+        int searchIndex = 0;
+        while (true) {
+            int idKeyIndex = json.indexOf(FDC_ID_KEY, searchIndex);
+            if (idKeyIndex == -1) {
+                break;
+            }
 
-        int arrayStart = json.indexOf('[', foodsStart);
-        int arrayEnd = findMatchingBracket(json, arrayStart);
-        if (arrayStart == -1 || arrayEnd == -1) {
-            return results;
-        }
+            int idStart = idKeyIndex + FDC_ID_KEY.length();
+            int idEnd = idStart;
+            while (idEnd < json.length() && Character.isDigit(json.charAt(idEnd))) {
+                idEnd++;
+            }
 
-        String foodsArray = json.substring(arrayStart + 1, arrayEnd);
-        List<String> foodObjects = splitTopLevelObjects(foodsArray);
+            if (idEnd == idStart) {
+                searchIndex = idStart;
+                continue;
+            }
 
-        for (String object : foodObjects) {
-            String description = extractStringField(object, "description");
-            int fdcId = extractIntField(object, "fdcId");
+            int descriptionKeyIndex = json.indexOf(DESCRIPTION_KEY, idEnd);
+            if (descriptionKeyIndex == -1) {
+                break;
+            }
 
-            if (description != null && !description.isEmpty() && fdcId != -1) {
+            int descriptionStart = descriptionKeyIndex + DESCRIPTION_KEY.length();
+            int descriptionEnd = findStringEnd(json, descriptionStart);
+            if (descriptionEnd == -1) {
+                break;
+            }
+
+            int fdcId = Integer.parseInt(json.substring(idStart, idEnd));
+            String description = unescape(json.substring(descriptionStart, descriptionEnd));
+
+            if (!description.isEmpty()) {
                 results.add(new FoodResult(fdcId, description));
             }
+
+            searchIndex = descriptionEnd + 1;
         }
 
         return results;
     }
 
     /**
-     * Finds the matching closing bracket for an opening square bracket.
+        * Finds where a JSON string value ends.
      *
-     * @param text text to scan
-     * @param openIndex index of an opening bracket
-     * @return matching closing bracket index, or -1 if missing
+        * @param text full JSON text
+        * @param start index where the string value starts
+        * @return index of the ending quote, or -1 if not found
      */
-    private int findMatchingBracket(String text, int openIndex) {
-        if (openIndex < 0 || openIndex >= text.length() || text.charAt(openIndex) != '[') {
-            return -1;
-        }
-
-        int depth = 0;
-        boolean inString = false;
+    private int findStringEnd(String text, int start) {
         boolean escaped = false;
-        for (int i = openIndex; i < text.length(); i++) {
+        for (int i = start; i < text.length(); i++) {
             char c = text.charAt(i);
             if (escaped) {
                 escaped = false;
             } else if (c == '\\') {
                 escaped = true;
             } else if (c == '"') {
-                inString = !inString;
-            } else if (!inString && c == '[') {
-                depth++;
-            } else if (!inString && c == ']') {
-                depth--;
-                if (depth == 0) {
-                    return i;
-                }
+                return i;
             }
         }
 
@@ -77,106 +86,16 @@ public class FoodParser {
     }
 
     /**
-     * Splits an array body into top-level JSON object strings.
+        * Converts common escaped JSON characters into normal text.
      *
-     * @param arrayBody content inside JSON array brackets
-     * @return list of JSON object text blocks
+        * @param text raw text from JSON
+        * @return cleaned text for display
      */
-    private List<String> splitTopLevelObjects(String arrayBody) {
-        List<String> objects = new ArrayList<>();
-        int depth = 0;
-        int objectStart = -1;
-        boolean inString = false;
-        boolean escaped = false;
-
-        for (int i = 0; i < arrayBody.length(); i++) {
-            char c = arrayBody.charAt(i);
-            if (escaped) {
-                escaped = false;
-            } else if (c == '\\') {
-                escaped = true;
-            } else if (c == '"') {
-                inString = !inString;
-            } else if (!inString && c == '{') {
-                if (depth == 0) {
-                    objectStart = i;
-                }
-                depth++;
-            } else if (!inString && c == '}') {
-                depth--;
-                if (depth == 0 && objectStart != -1) {
-                    objects.add(arrayBody.substring(objectStart, i + 1));
-                    objectStart = -1;
-                }
-            }
-        }
-
-        return objects;
-    }
-
-    /**
-     * Extracts a string value for a named JSON field.
-     *
-     * @param jsonObject JSON object text
-     * @param fieldName key to extract
-     * @return string field value, or null if not found
-     */
-    private String extractStringField(String jsonObject, String fieldName) {
-        String key = "\"" + fieldName + "\":\"";
-        int start = jsonObject.indexOf(key);
-        if (start == -1) {
-            return null;
-        }
-
-        start += key.length();
-        StringBuilder value = new StringBuilder();
-        boolean escaped = false;
-
-        for (int i = start; i < jsonObject.length(); i++) {
-            char c = jsonObject.charAt(i);
-            if (escaped) {
-                value.append(c);
-                escaped = false;
-            } else if (c == '\\') {
-                escaped = true;
-            } else if (c == '"') {
-                return value.toString();
-            } else {
-                value.append(c);
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Extracts an integer value for a named JSON field.
-     *
-     * @param jsonObject JSON object text
-     * @param fieldName key to extract
-     * @return integer field value, or -1 if not found/invalid
-     */
-    private int extractIntField(String jsonObject, String fieldName) {
-        String key = "\"" + fieldName + "\":";
-        int start = jsonObject.indexOf(key);
-        if (start == -1) {
-            return -1;
-        }
-
-        start += key.length();
-        int end = start;
-        while (end < jsonObject.length() && Character.isDigit(jsonObject.charAt(end))) {
-            end++;
-        }
-
-        if (end == start) {
-            return -1;
-        }
-
-        try {
-            return Integer.parseInt(jsonObject.substring(start, end));
-        } catch (NumberFormatException e) {
-            return -1;
-        }
+    private String unescape(String text) {
+        return text
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\")
+                .replace("\\n", " ")
+                .replace("\\t", " ");
     }
 }
