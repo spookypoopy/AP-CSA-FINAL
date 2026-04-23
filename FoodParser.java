@@ -11,6 +11,18 @@ public class FoodParser {
     /** Text that appears before each food description in JSON. */
     private static final String DESCRIPTION_KEY = "\"description\":\"";
 
+    /** Nutrient number for calories. */
+    private static final String CALORIES_NUMBER = "208";
+
+    /** Nutrient number for protein. */
+    private static final String PROTEIN_NUMBER = "203";
+
+    /** Nutrient number for carbohydrates. */
+    private static final String CARB_NUMBER = "205";
+
+    /** Nutrient number for total fat. */
+    private static final String FAT_NUMBER = "204";
+
     /**
      * Builds a list of foods by scanning the JSON string.
      *
@@ -97,5 +109,62 @@ public class FoodParser {
                 .replace("\\\\", "\\")
                 .replace("\\n", " ")
                 .replace("\\t", " ");
+    }
+
+    /**
+     * Builds nutrition values from food-detail JSON.
+     *
+     * @param json raw JSON for one selected food
+     * @return nutrition info with calories, protein, carbs, and fat
+     */
+    public NutritionInfo parseNutritionInfo(String json) {
+        double calories = findAmountByNutrientNumber(json, CALORIES_NUMBER);
+        double protein = findAmountByNutrientNumber(json, PROTEIN_NUMBER);
+        double carbs = findAmountByNutrientNumber(json, CARB_NUMBER);
+        double fat = findAmountByNutrientNumber(json, FAT_NUMBER);
+
+        return new NutritionInfo(calories, protein, carbs, fat);
+    }
+
+    /**
+     * Finds nutrient amount by nutrient number.
+     *
+     * @param json raw food-detail JSON
+     * @param nutrientNumber USDA nutrient number
+     * @return nutrient amount, or -1 when missing
+     */
+    private double findAmountByNutrientNumber(String json, String nutrientNumber) {
+        String numberKey = "\"number\":\"" + nutrientNumber + "\"";
+        int numberIndex = json.indexOf(numberKey);
+        if (numberIndex == -1) {
+            return -1;
+        }
+
+        int amountIndex = json.lastIndexOf("\"amount\":", numberIndex);
+        if (amountIndex == -1) {
+            return -1;
+        }
+
+        int valueStart = amountIndex + "\"amount\":".length();
+        int valueEnd = valueStart;
+
+        while (valueEnd < json.length()) {
+            char c = json.charAt(valueEnd);
+            if (Character.isDigit(c) || c == '.' || c == '-') {
+                valueEnd++;
+            } else {
+                break;
+            }
+        }
+
+        if (valueStart == valueEnd) {
+            return -1;
+        }
+
+        try {
+            return Double.parseDouble(json.substring(valueStart, valueEnd));
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 }

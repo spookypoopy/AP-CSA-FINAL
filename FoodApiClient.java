@@ -47,6 +47,34 @@ public class FoodApiClient {
                 + "&pageSize=" + pageSize
                 + "&api_key=" + apiKey;
 
+        return sendGetRequest(urlWithParams);
+        }
+
+        /**
+         * Calls the API for one food by ID and returns raw JSON text.
+         *
+         * @param fdcId USDA food ID
+         * @return raw JSON response from the API
+         * @throws IOException if the request fails
+         */
+        public String fetchFoodDetailsJson(int fdcId) throws IOException {
+        String urlWithParams = "https://api.nal.usda.gov/fdc/v1/food/"
+            + fdcId
+            + "?api_key="
+            + apiKey;
+
+        return sendGetRequest(urlWithParams);
+        }
+
+        /**
+         * Sends a GET request and returns response text.
+         *
+         * @param urlWithParams full URL with query parameters
+         * @return raw response body
+         * @throws IOException if the request fails
+         */
+        private String sendGetRequest(String urlWithParams) throws IOException {
+
         URL url = URI.create(urlWithParams).toURL();
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("GET");

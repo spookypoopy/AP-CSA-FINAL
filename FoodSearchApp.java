@@ -1,5 +1,6 @@
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Scanner;
 
 /**
@@ -44,6 +45,18 @@ public class FoodSearchApp {
     }
 
     /**
+     * Gets nutrition values for one selected food.
+     *
+     * @param fdcId USDA food ID
+     * @return nutrition values for this food
+     * @throws IOException if the API request fails
+     */
+    public NutritionInfo getNutritionForFood(int fdcId) throws IOException {
+        String jsonResponse = apiClient.fetchFoodDetailsJson(fdcId);
+        return parser.parseNutritionInfo(jsonResponse);
+    }
+
+    /**
      * Builds a 2D table of result data for clean console output.
      *
      * <p>Rows represent foods and columns represent: index, FDC ID, and description.</p>
@@ -76,6 +89,59 @@ public class FoodSearchApp {
     }
 
     /**
+     * Asks the user to choose one food number from the list.
+     *
+     * @param scanner scanner used for reading input
+     * @param maxChoice largest valid food number
+     * @return selected number (1..maxChoice), or 0 to skip
+     */
+    private int askForFoodChoice(Scanner scanner, int maxChoice) {
+        while (true) {
+            System.out.print("Choose a food number for nutrition (0 to skip): ");
+            String text = scanner.nextLine().trim();
+
+            try {
+                int choice = Integer.parseInt(text);
+                if (choice >= 0 && choice <= maxChoice) {
+                    return choice;
+                }
+            } catch (NumberFormatException e) {
+                // Keep looping and ask again.
+            }
+
+            System.out.println("Please enter a number between 0 and " + maxChoice + ".");
+        }
+    }
+
+    /**
+     * Prints a nutrition summary for the selected food.
+     *
+     * @param food selected food item
+     * @param nutrition nutrition values for that food
+     */
+    private void printNutrition(FoodResult food, NutritionInfo nutrition) {
+        System.out.println("Nutrition for: " + food.getDescription());
+        System.out.println("Calories: " + formatNutrient(nutrition.getCalories()) + " kcal");
+        System.out.println("Protein : " + formatNutrient(nutrition.getProtein()) + " g");
+        System.out.println("Carbs   : " + formatNutrient(nutrition.getCarbs()) + " g");
+        System.out.println("Fat     : " + formatNutrient(nutrition.getFat()) + " g");
+    }
+
+    /**
+     * Formats one nutrient value for display.
+     *
+     * @param value numeric nutrient value
+     * @return one decimal place text, or "N/A" when missing
+     */
+    private String formatNutrient(double value) {
+        if (value < 0) {
+            return "N/A";
+        }
+
+        return String.format(Locale.US, "%.1f", value);
+    }
+
+    /**
      * Starts the console loop for user input.
      *
      * @param args command-line arguments (not used in this app)
@@ -105,6 +171,13 @@ public class FoodSearchApp {
                         System.out.println("Matches:");
                         String[][] resultTable = app.buildResultsTable(results);
                         app.printResultsTable(resultTable);
+
+                        int choice = app.askForFoodChoice(scanner, results.size());
+                        if (choice > 0) {
+                            FoodResult selectedFood = results.get(choice - 1);
+                            NutritionInfo nutrition = app.getNutritionForFood(selectedFood.getFdcId());
+                            app.printNutrition(selectedFood, nutrition);
+                        }
                     }
                 } catch (IOException e) {
                     System.out.println("Error while searching foods: " + e.getMessage());
