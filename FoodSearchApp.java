@@ -83,8 +83,8 @@ public class FoodSearchApp {
      * @param table result table with index, FDC ID, and description columns
      */
     private void printResultsTable(String[][] table) {
-        for (int i = 0; i < table.length; i++) {
-            System.out.println(table[i][0] + ". " + table[i][2] + " (FDC ID: " + table[i][1] + ")");
+        for (String[] row : table) {
+            System.out.println(row[0] + ". " + row[2] + " (FDC ID: " + row[1] + ")");
         }
     }
 
