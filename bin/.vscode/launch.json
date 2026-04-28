@@ -3,6 +3,13 @@
   "configurations": [
     {
       "type": "java",
+      "name": "FoodSearchApp",
+      "request": "launch",
+      "mainClass": "FoodSearchApp",
+      "projectName": "AP-CSA-FINAL_d1b011e"
+    },
+    {
+      "type": "java",
       "name": "Run FoodSearchApp",
       "request": "launch",
       "mainClass": "FoodSearchApp",

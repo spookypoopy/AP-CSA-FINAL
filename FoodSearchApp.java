@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Scanner;
@@ -16,7 +17,10 @@ public class FoodSearchApp {
     private static final String BASE_URL = "https://api.nal.usda.gov/fdc/v1/foods/search";
 
     /** How many results to request from the API each time. */
-    private static final int PAGE_SIZE = 20;
+    private static final int API_PAGE_SIZE = 20;
+
+    /** How many results to display per page in the terminal. */
+    private static final int DISPLAY_PAGE_SIZE = 10;
 
     /** Object that sends HTTP requests to the API. */
     private final FoodApiClient apiClient;
@@ -28,7 +32,7 @@ public class FoodSearchApp {
      * Builds the app and sets up helper objects.
      */
     public FoodSearchApp() {
-        apiClient = new FoodApiClient(API_KEY, BASE_URL, PAGE_SIZE);
+        apiClient = new FoodApiClient(API_KEY, BASE_URL, API_PAGE_SIZE);
         parser = new FoodParser();
     }
 
@@ -57,74 +61,101 @@ public class FoodSearchApp {
     }
 
     /**
-     * Builds a 2D table of result data for clean console output.
+     * Displays one page of search results and lets user pick a food or navigate pages.
      *
-     * <p>Rows represent foods and columns represent: index, FDC ID, and description.</p>
-     *
-     * @param results foods found by the API
-     * @return 2D array of display data
+     * @param allResults all foods found by the API
+     * @param scanner for reading user input
+     * @return selected FoodResult, or null if user skipped
+     * @throws IOException if fetching nutrition details fails
      */
-    private String[][] buildResultsTable(List<FoodResult> results) {
-        String[][] table = new String[results.size()][3];
+    private FoodResult displayResultsWithPagination(List<FoodResult> allResults, Scanner scanner) throws IOException {
+        int totalPages = (int) Math.ceil((double) allResults.size() / DISPLAY_PAGE_SIZE);
+        int currentPage = 1;
 
-        for (int i = 0; i < results.size(); i++) {
-            FoodResult food = results.get(i);
-            table[i][0] = String.valueOf(i + 1);
-            table[i][1] = String.valueOf(food.getFdcId());
-            table[i][2] = food.getDescription();
-        }
-
-        return table;
-    }
-
-    /**
-     * Prints rows from the 2D results table.
-     *
-     * @param table result table with index, FDC ID, and description columns
-     */
-    private void printResultsTable(String[][] table) {
-        for (String[] row : table) {
-            System.out.println(row[0] + ". " + row[2] + " (FDC ID: " + row[1] + ")");
-        }
-    }
-
-    /**
-     * Asks the user to choose one food number from the list.
-     *
-     * @param scanner scanner used for reading input
-     * @param maxChoice largest valid food number
-     * @return selected number (1..maxChoice), or 0 to skip
-     */
-    private int askForFoodChoice(Scanner scanner, int maxChoice) {
         while (true) {
-            System.out.print("Choose a food number for nutrition (0 to skip): ");
-            String text = scanner.nextLine().trim();
+            // Calculate which results to show on this page
+            int startIndex = (currentPage - 1) * DISPLAY_PAGE_SIZE;
+            int endIndex = Math.min(startIndex + DISPLAY_PAGE_SIZE, allResults.size());
 
-            try {
-                int choice = Integer.parseInt(text);
-                if (choice >= 0 && choice <= maxChoice) {
-                    return choice;
-                }
-            } catch (NumberFormatException e) {
-                // Keep looping and ask again.
+            // Print the current page
+            System.out.println("\n--- Page " + currentPage + " of " + totalPages + " (" + allResults.size() + " results) ---");
+            for (int i = startIndex; i < endIndex; i++) {
+                FoodResult food = allResults.get(i);
+                int displayNumber = i + 1;
+                System.out.println(displayNumber + ". " + food.getDescription());
             }
 
-            System.out.println("Please enter a number between 0 and " + maxChoice + ".");
+            // Prompt user
+            System.out.println("\n(Enter food number, 'n' for next page, 'p' for previous page, or '0' to skip)");
+            System.out.print("Choice: ");
+            String input = scanner.nextLine().trim().toLowerCase();
+
+            if (input.equals("0")) {
+                return null;
+            } else if (input.equals("n") && currentPage < totalPages) {
+                currentPage++;
+            } else if (input.equals("p") && currentPage > 1) {
+                currentPage--;
+            } else {
+                try {
+                    int choice = Integer.parseInt(input);
+                    if (choice > 0 && choice <= allResults.size()) {
+                        return allResults.get(choice - 1);
+                    } else {
+                        System.out.println("Please enter a valid food number.");
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid input. Please enter a number, 'n', 'p', or '0'.");
+                }
+            }
         }
     }
 
     /**
-     * Prints a nutrition summary for the selected food.
+     * Filters search results by matching any word in the query.
+     * This helps find results when exact names don't match.
+     *
+     * @param allResults all results from the API
+     * @param query original search text
+     * @return filtered results with at least one word matching
+     */
+    private List<FoodResult> filterResultsByRelevance(List<FoodResult> allResults, String query) {
+        String[] queryWords = query.toLowerCase().split("\\s+");
+        List<FoodResult> filteredResults = new ArrayList<>();
+
+        for (FoodResult food : allResults) {
+            String descriptionLower = food.getDescription().toLowerCase();
+            for (String word : queryWords) {
+                if (word.length() > 2 && descriptionLower.contains(word)) {
+                    filteredResults.add(food);
+                    break;
+                }
+            }
+        }
+
+        // If filtering removed too many results, return originals
+        if (filteredResults.isEmpty()) {
+            return allResults;
+        }
+        return filteredResults;
+    }
+
+
+
+    /**
+     * Displays a nutrition summary for the selected food.
      *
      * @param food selected food item
      * @param nutrition nutrition values for that food
      */
-    private void printNutrition(FoodResult food, NutritionInfo nutrition) {
-        System.out.println("Nutrition for: " + food.getDescription());
+    private void displayNutritionInfo(FoodResult food, NutritionInfo nutrition) {
+        System.out.println("\n=== Nutrition Information ===");
+        System.out.println("Food: " + food.getDescription());
         System.out.println("Calories: " + formatNutrient(nutrition.getCalories()) + " kcal");
-        System.out.println("Protein : " + formatNutrient(nutrition.getProtein()) + " g");
-        System.out.println("Carbs   : " + formatNutrient(nutrition.getCarbs()) + " g");
-        System.out.println("Fat     : " + formatNutrient(nutrition.getFat()) + " g");
+        System.out.println("Protein:  " + formatNutrient(nutrition.getProtein()) + " g");
+        System.out.println("Carbs:    " + formatNutrient(nutrition.getCarbs()) + " g");
+        System.out.println("Fat:      " + formatNutrient(nutrition.getFat()) + " g");
+        System.out.println("=============================\n");
     }
 
     /**
@@ -149,44 +180,52 @@ public class FoodSearchApp {
     public static void main(String[] args) {
         FoodSearchApp app = new FoodSearchApp();
         try (Scanner scanner = new Scanner(System.in)) {
-            System.out.println("Food Search (type 'exit' to quit)");
+            System.out.println("=== FOOD SEARCH ===");
+            System.out.println("Type 'exit' to quit. Search any food by name.\n");
+
             while (true) {
                 System.out.print("Search for a food: ");
-                String input = scanner.nextLine().trim();
+                String searchQuery = scanner.nextLine().trim();
 
-                if (input.equalsIgnoreCase("exit")) {
+                if (searchQuery.equalsIgnoreCase("exit")) {
                     break;
                 }
 
-                if (input.isEmpty()) {
-                    System.out.println("Please enter a food name.");
+                if (searchQuery.isEmpty()) {
+                    System.out.println("Please enter a food name.\n");
                     continue;
                 }
 
                 try {
-                    List<FoodResult> results = app.searchFoods(input);
-                    if (results.isEmpty()) {
-                        System.out.println("No matching foods found.");
+                    System.out.println("Searching...");
+                    List<FoodResult> apiResults = app.searchFoods(searchQuery);
+                    
+                    if (apiResults.isEmpty()) {
+                        System.out.println("No matching foods found.\n");
                     } else {
-                        System.out.println("Matches:");
-                        String[][] resultTable = app.buildResultsTable(results);
-                        app.printResultsTable(resultTable);
-
-                        int choice = app.askForFoodChoice(scanner, results.size());
-                        if (choice > 0) {
-                            FoodResult selectedFood = results.get(choice - 1);
-                            NutritionInfo nutrition = app.getNutritionForFood(selectedFood.getFdcId());
-                            app.printNutrition(selectedFood, nutrition);
+                        // Filter results for better relevance
+                        List<FoodResult> filteredResults = app.filterResultsByRelevance(apiResults, searchQuery);
+                        
+                        System.out.println("Found " + filteredResults.size() + " matching foods.\n");
+                        
+                        // Show paginated results and get user selection
+                        FoodResult selectedFood = app.displayResultsWithPagination(filteredResults, scanner);
+                        
+                        if (selectedFood != null) {
+                            try {
+                                NutritionInfo nutritionInfo = app.getNutritionForFood(selectedFood.getFdcId());
+                                app.displayNutritionInfo(selectedFood, nutritionInfo);
+                            } catch (IOException e) {
+                                System.out.println("Error fetching nutrition info: " + e.getMessage() + "\n");
+                            }
                         }
                     }
                 } catch (IOException e) {
-                    System.out.println("Error while searching foods: " + e.getMessage());
+                    System.out.println("Error searching for foods: " + e.getMessage() + "\n");
                 }
-
-                System.out.println();
             }
         }
 
-        System.out.println("Goodbye!");
+        System.out.println("\nGoodbye!");
     }
 }
