@@ -1,8 +1,10 @@
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Scanner;
+import java.util.Set;
 
 /**
  * Main class for the console food search program.
@@ -40,12 +42,31 @@ public class FoodSearchApp {
      * Searches for foods that match the user's text.
      *
      * @param query food name typed by the user
-     * @return list of matching foods
+     * @return list of matching foods with duplicates removed
      * @throws IOException if the API request fails
      */
     public List<FoodResult> searchFoods(String query) throws IOException {
         String jsonResponse = apiClient.fetchFoodsJson(query);
-        return parser.parseFoods(jsonResponse);
+        List<FoodResult> results = parser.parseFoods(jsonResponse);
+        return removeDuplicates(results);
+    }
+
+    /**
+     * Removes duplicate foods with identical descriptions.
+     *
+     * @param foods list that may contain duplicates
+     * @return filtered list with only first occurrence of each description
+     */
+    private List<FoodResult> removeDuplicates(List<FoodResult> foods) {
+        Set<String> seen = new HashSet<>();
+        List<FoodResult> unique = new ArrayList<>();
+        for (FoodResult food : foods) {
+            String desc = food.getDescription().toLowerCase();
+            if (seen.add(desc)) {
+                unique.add(food);
+            }
+        }
+        return unique;
     }
 
     /**
@@ -112,32 +133,56 @@ public class FoodSearchApp {
     }
 
     /**
-     * Filters search results by matching any word in the query.
-     * This helps find results when exact names don't match.
+     * Filters search results by relevance, prioritizing:
+     * 1. Exact keyword matches (first word of description)
+     * 2. Foods with processed/brand names (lower priority)
+     * 3. Results that match multiple query words
      *
      * @param allResults all results from the API
      * @param query original search text
-     * @return filtered results with at least one word matching
+     * @return filtered results sorted by relevance
      */
     private List<FoodResult> filterResultsByRelevance(List<FoodResult> allResults, String query) {
         String[] queryWords = query.toLowerCase().split("\\s+");
-        List<FoodResult> filteredResults = new ArrayList<>();
+        String queryBase = queryWords[0]; // primary search term
+        
+        List<FoodResult> highRelevance = new ArrayList<>();
+        List<FoodResult> mediumRelevance = new ArrayList<>();
 
         for (FoodResult food : allResults) {
-            String descriptionLower = food.getDescription().toLowerCase();
-            for (String word : queryWords) {
-                if (word.length() > 2 && descriptionLower.contains(word)) {
-                    filteredResults.add(food);
-                    break;
+            String descLower = food.getDescription().toLowerCase();
+            
+            // Exact match: food description starts with primary query word
+            if (descLower.startsWith(queryBase)) {
+                highRelevance.add(food);
+            } else {
+                // Check if contains all main query words
+                boolean hasAllWords = true;
+                int wordCount = 0;
+                for (String word : queryWords) {
+                    if (word.length() > 2) {
+                        if (descLower.contains(word)) {
+                            wordCount++;
+                        } else {
+                            hasAllWords = false;
+                        }
+                    }
+                }
+                // Include foods with meaningful keyword matches
+                if (wordCount > 0 || descLower.contains(queryBase)) {
+                    mediumRelevance.add(food);
                 }
             }
         }
 
-        // If filtering removed too many results, return originals
-        if (filteredResults.isEmpty()) {
+        // Combine: high relevance results first, then medium
+        highRelevance.addAll(mediumRelevance);
+        
+        // If we got no results from filtering, return originals
+        if (highRelevance.isEmpty()) {
             return allResults;
         }
-        return filteredResults;
+        return highRelevance;
     }
 
 

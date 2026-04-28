@@ -140,7 +140,9 @@ public class FoodParser {
             return -1;
         }
 
-        int amountIndex = json.lastIndexOf("\"amount\":", numberIndex);
+        // Search FORWARD from the nutrient number to find the "amount" field
+        // This ensures we get the amount for THIS nutrient, not a different one
+        int amountIndex = json.indexOf("\"amount\":", numberIndex);
         if (amountIndex == -1) {
             return -1;
         }
@@ -148,6 +150,13 @@ public class FoodParser {
         int valueStart = amountIndex + "\"amount\":".length();
         int valueEnd = valueStart;
 
+        // Skip whitespace
+        while (valueEnd < json.length() && Character.isWhitespace(json.charAt(valueEnd))) {
+            valueEnd++;
+        }
+
+        // Parse the numeric value
+        int numStart = valueEnd;
         while (valueEnd < json.length()) {
             char c = json.charAt(valueEnd);
             if (Character.isDigit(c) || c == '.' || c == '-') {
@@ -157,12 +166,12 @@ public class FoodParser {
             }
         }
 
-        if (valueStart == valueEnd) {
+        if (numStart == valueEnd) {
             return -1;
         }
 
         try {
-            return Double.parseDouble(json.substring(valueStart, valueEnd));
+            return Double.parseDouble(json.substring(numStart, valueEnd));
         } catch (NumberFormatException e) {
             return -1;
         }
