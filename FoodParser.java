@@ -22,6 +22,8 @@ public class FoodParser {
 
     /** Nutrient number for total fat. */
     private static final String FAT_NUMBER = "204";
+    /** JSON key for ingredient text in food detail responses. */
+    private static final String INGREDIENTS_KEY = "\"ingredients\":";
 
     /**
      * Builds a list of foods by scanning the JSON string.
@@ -123,7 +125,23 @@ public class FoodParser {
         double carbs = findAmountByNutrientNumber(json, CARB_NUMBER);
         double fat = findAmountByNutrientNumber(json, FAT_NUMBER);
 
-        return new NutritionInfo(calories, protein, carbs, fat);
+        // Try to extract an ingredients string when present
+        String ingredients = null;
+        int ingIndex = json.indexOf(INGREDIENTS_KEY);
+        if (ingIndex != -1) {
+            int start = ingIndex + INGREDIENTS_KEY.length();
+            // skip possible whitespace and opening quote
+            while (start < json.length() && Character.isWhitespace(json.charAt(start))) start++;
+            if (start < json.length() && json.charAt(start) == '"') {
+                start++;
+                int end = findStringEnd(json, start);
+                if (end != -1) {
+                    ingredients = unescape(json.substring(start, end));
+                }
+            }
+        }
+
+        return new NutritionInfo(calories, protein, carbs, fat, ingredients);
     }
 
     /**

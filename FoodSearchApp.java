@@ -39,54 +39,16 @@ public class FoodSearchApp {
     }
 
     /**
-     * Searches for foods that match the user's text, with smart brand filtering.
-     * For multi-word searches, filters out irrelevant categories and falls back
-     * to brand-only search if results appear generic.
+     * Searches for foods and applies a simple relevance filter.
      *
      * @param query food name typed by the user
-     * @return list of matching foods with duplicates removed and optimized filtering
+     * @return list of matching foods with duplicates removed
      * @throws IOException if the API request fails
      */
     public List<FoodResult> searchFoods(String query) throws IOException {
         String jsonResponse = apiClient.fetchFoodsJson(query);
         List<FoodResult> results = parser.parseFoods(jsonResponse);
-        results = removeDuplicates(results);
-        
-        // For multi-word queries, apply smart filtering
-        String[] words = query.toLowerCase().split("\\s+");
-        if (words.length > 1) {
-            List<FoodResult> filtered = filterByBrandMatch(results, words);
-            
-            // Check if first result looks "branded" enough
-            // If top results are babyfood/generic, fall back to brand-only search
-            if (filtered.size() > 0) {
-                String firstDesc = filtered.get(0).getDescription().toLowerCase();
-                boolean firstIsGeneric = firstDesc.contains("babyfood") || firstDesc.contains("ns as to") || firstDesc.contains("nfs");
-                
-                if (!firstIsGeneric) {
-                    return filtered;
-                }
-            }
-            
-            // Fallback: search JUST the brand name for better results
-            String brandOnlyQuery = words[0];
-            String brandJsonResponse = apiClient.fetchFoodsJson(brandOnlyQuery);
-            List<FoodResult> brandResults = parser.parseFoods(brandJsonResponse);
-            brandResults = removeDuplicates(brandResults);
-            
-            // Filter brand results by secondary keywords
-            List<FoodResult> brandFiltered = filterByBrandMatch(brandResults, words);
-            if (brandFiltered.size() >= 5) {
-                return brandFiltered;
-            }
-            
-            // If brand+filter gives fewer results, return all brand results
-            if (brandResults.size() >= 5) {
-                return brandResults;
-            }
-        }
-        
-        return results;
+        return removeDuplicates(results);
     }
 
     /**
@@ -147,6 +109,9 @@ public class FoodSearchApp {
             // Prompt user
             System.out.println("\n(Enter food number, 'n' for next page, 'p' for previous page, or '0' to skip)");
             System.out.print("Choice: ");
+            if (!scanner.hasNextLine()) {
+                return null;
+            }
             String input = scanner.nextLine().trim().toLowerCase();
 
             if (input.equals("0")) {
@@ -170,99 +135,7 @@ public class FoodSearchApp {
         }
     }
 
-    /**
-     * Smart brand filtering for multi-word searches.
-     * Filters out obviously irrelevant categories and keeps items matching most keywords.
-     *
-     * @param foods results to filter
-     * @param queryWords search terms split into words
-     * @return filtered results, removing obviously wrong categories
-     */
-    private List<FoodResult> filterByBrandMatch(List<FoodResult> foods, String[] queryWords) {
-        String secondaryKeyword = queryWords.length > 1 ? queryWords[1].toLowerCase() : "";
-        String tertiaryKeyword = queryWords.length > 2 ? queryWords[2].toLowerCase() : "";
-        
-        List<FoodResult> filtered = new ArrayList<>();
-        
-        // If user is looking for meat/stick related items
-        if (!secondaryKeyword.isEmpty() && (secondaryKeyword.contains("meat") || secondaryKeyword.contains("stick") || secondaryKeyword.contains("beef"))) {
-            // Filter OUT irrelevant categories
-            String[] wrongCategories = {"chocolate", "candy", "bar", "cereal", "ice cream", "dessert", "cake", "cookie", "lasagna", "ravioli", "empanada", "dumpling", "enchilada", "crepe", "gordita", "chili", "biryani", "chimichanga", "frankfurter"};
-            
-            for (FoodResult food : foods) {
-                String desc = food.getDescription().toLowerCase();
-                boolean isWrongCategory = false;
-                
-                // Check if it's in a wrong category
-                for (String wrong : wrongCategories) {
-                    if (desc.contains(wrong)) {
-                        isWrongCategory = true;
-                        break;
-                    }
-                }
-                
-                // Keep if: not wrong category AND (has "stick" OR has "snack" OR is obviously a stick product)
-                if (!isWrongCategory) {
-                    if (desc.contains("stick") || desc.contains("snack") ||  desc.contains("sticks")) {
-                        filtered.add(food);
-                    }
-                }
-            }
-            
-            return filtered;
-        }
-        
-        // Generic multi-word search - keep everything by default
-        return foods;
-    }
-
-    /**
-     * Filters results to only include those containing the primary keyword.
-     * Used as a fallback for multi-word searches that return too many generic results.
-     *
-     * @param foods results to filter
-     * @param primaryKeyword the main search term (first word)
-     * @return foods containing the primary keyword
-     */
-    private List<FoodResult> filterForRelevance(List<FoodResult> foods, String primaryKeyword) {
-        List<FoodResult> filtered = new ArrayList<>();
-        for (FoodResult food : foods) {
-            if (food.getDescription().toLowerCase().contains(primaryKeyword)) {
-                filtered.add(food);
-            }
-        }
-        return filtered;
-    }
-
-    /**
-     * Secondary filtering for single-word queries only.
-     * Multi-word queries are already filtered in searchFoods().
-     *
-     * @param allResults all results from the API
-     * @param query original search text
-     * @return filtered results
-     */
-    private List<FoodResult> filterResultsByRelevance(List<FoodResult> allResults, String query) {
-        String[] queryWords = query.toLowerCase().trim().split("\\s+");
-        
-        // For multi-word queries, trust the filtering done in searchFoods()
-        if (queryWords.length > 1) {
-            return allResults;
-        }
-        
-        // Single word - prioritize exact matches
-        String word = queryWords[0];
-        List<FoodResult> filtered = new ArrayList<>();
-        
-        for (FoodResult food : allResults) {
-            String desc = food.getDescription().toLowerCase();
-            if (desc.startsWith(word) || desc.contains(word)) {
-                filtered.add(food);
-            }
-        }
-        
-        return filtered.isEmpty() ? allResults : filtered;
-    }
+    // Filtering removed — search returns de-duplicated API results directly.
 
 
 
@@ -297,6 +170,44 @@ public class FoodSearchApp {
     }
 
     /**
+     * Handle a single search request. Kept simple for AP CSA readability.
+     * This method performs the search, shows results, and fetches nutrition
+     * information for the selected item.
+     */
+    private void handleSearchRequest(String searchQuery, Scanner scanner) {
+        if (searchQuery.isEmpty()) {
+            System.out.println("Please enter a food name.\n");
+            return;
+        }
+
+        try {
+            System.out.println("Searching...");
+            List<FoodResult> apiResults = searchFoods(searchQuery);
+
+            if (apiResults.isEmpty()) {
+                System.out.println("No matching foods found.\n");
+                return;
+            }
+
+            System.out.println("Found " + apiResults.size() + " matching foods.\n");
+
+            FoodResult selectedFood = displayResultsWithPagination(apiResults, scanner);
+            if (selectedFood == null) {
+                return;
+            }
+
+            try {
+                NutritionInfo nutritionInfo = getNutritionForFood(selectedFood.getFdcId());
+                displayNutritionInfo(selectedFood, nutritionInfo);
+            } catch (IOException e) {
+                System.out.println("Error fetching nutrition info: " + e.getMessage() + "\n");
+            }
+        } catch (IOException e) {
+            System.out.println("Error searching for foods: " + e.getMessage() + "\n");
+        }
+    }
+
+    /**
      * Starts the console loop for user input.
      *
      * @param args command-line arguments (not used in this app)
@@ -309,44 +220,18 @@ public class FoodSearchApp {
 
             while (true) {
                 System.out.print("Search for a food: ");
+                if (!scanner.hasNextLine()) {
+                    break;
+                }
                 String searchQuery = scanner.nextLine().trim();
 
+                // Exit command
                 if (searchQuery.equalsIgnoreCase("exit")) {
                     break;
                 }
 
-                if (searchQuery.isEmpty()) {
-                    System.out.println("Please enter a food name.\n");
-                    continue;
-                }
-
-                try {
-                    System.out.println("Searching...");
-                    List<FoodResult> apiResults = app.searchFoods(searchQuery);
-                    
-                    if (apiResults.isEmpty()) {
-                        System.out.println("No matching foods found.\n");
-                    } else {
-                        // Filter results for better relevance
-                        List<FoodResult> filteredResults = app.filterResultsByRelevance(apiResults, searchQuery);
-                        
-                        System.out.println("Found " + filteredResults.size() + " matching foods.\n");
-                        
-                        // Show paginated results and get user selection
-                        FoodResult selectedFood = app.displayResultsWithPagination(filteredResults, scanner);
-                        
-                        if (selectedFood != null) {
-                            try {
-                                NutritionInfo nutritionInfo = app.getNutritionForFood(selectedFood.getFdcId());
-                                app.displayNutritionInfo(selectedFood, nutritionInfo);
-                            } catch (IOException e) {
-                                System.out.println("Error fetching nutrition info: " + e.getMessage() + "\n");
-                            }
-                        }
-                    }
-                } catch (IOException e) {
-                    System.out.println("Error searching for foods: " + e.getMessage() + "\n");
-                }
+                // Delegate the search handling to a small helper to keep main readable
+                app.handleSearchRequest(searchQuery, scanner);
             }
         }
 

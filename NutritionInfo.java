@@ -13,6 +13,9 @@ public class NutritionInfo {
 
     /** Fat in grams. */
     private final double fat;
+    
+    /** Ingredients text (may be null when not provided). */
+    private final String ingredients;
 
     /**
      * Creates a nutrition info object.
@@ -22,11 +25,12 @@ public class NutritionInfo {
      * @param carbs carbs in grams
      * @param fat fat in grams
      */
-    public NutritionInfo(double calories, double protein, double carbs, double fat) {
+    public NutritionInfo(double calories, double protein, double carbs, double fat, String ingredients) {
         this.calories = calories;
         this.protein = protein;
         this.carbs = carbs;
         this.fat = fat;
+        this.ingredients = ingredients;
     }
 
     /**
@@ -45,6 +49,15 @@ public class NutritionInfo {
      */
     public double getProtein() {
         return protein;
+    }
+
+    /**
+     * Returns the ingredients text or null when not available.
+     *
+     * @return ingredients string or null
+     */
+    public String getIngredients() {
+        return ingredients;
     }
 
     /**

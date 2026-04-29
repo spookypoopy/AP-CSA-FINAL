@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -48,32 +49,32 @@ public class FoodApiClient {
                 + "&api_key=" + apiKey;
 
         return sendGetRequest(urlWithParams);
-        }
+    }
 
-        /**
-         * Calls the API for one food by ID and returns raw JSON text.
-         *
-         * @param fdcId USDA food ID
-         * @return raw JSON response from the API
-         * @throws IOException if the request fails
-         */
-        public String fetchFoodDetailsJson(int fdcId) throws IOException {
+    /**
+     * Calls the API for one food by ID and returns raw JSON text.
+     *
+     * @param fdcId USDA food ID
+     * @return raw JSON response from the API
+     * @throws IOException if the request fails
+     */
+    public String fetchFoodDetailsJson(int fdcId) throws IOException {
         String urlWithParams = "https://api.nal.usda.gov/fdc/v1/food/"
-            + fdcId
-            + "?api_key="
-            + apiKey;
+                + fdcId
+                + "?api_key="
+                + apiKey;
 
         return sendGetRequest(urlWithParams);
-        }
+    }
 
-        /**
-         * Sends a GET request and returns response text.
-         *
-         * @param urlWithParams full URL with query parameters
-         * @return raw response body
-         * @throws IOException if the request fails
-         */
-        private String sendGetRequest(String urlWithParams) throws IOException {
+    /**
+     * Sends a GET request and returns response text.
+     *
+     * @param urlWithParams full URL with query parameters
+     * @return raw response body
+     * @throws IOException if the request fails
+     */
+    private String sendGetRequest(String urlWithParams) throws IOException {
 
         URL url = URI.create(urlWithParams).toURL();
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -84,7 +85,11 @@ public class FoodApiClient {
 
         int status = connection.getResponseCode();
         if (status != HttpURLConnection.HTTP_OK) {
-            throw new IOException("API request failed with status " + status);
+            String errorBody = readStream(connection.getErrorStream());
+            if (errorBody.isEmpty()) {
+                throw new IOException("API request failed with status " + status);
+            }
+            throw new IOException("API request failed with status " + status + ": " + errorBody);
         }
 
         StringBuilder response = new StringBuilder();
@@ -98,6 +103,29 @@ public class FoodApiClient {
             connection.disconnect();
         }
 
+        return response.toString();
+    }
+
+    /**
+     * Reads an input stream into a single string.
+     *
+     * @param stream stream to read, may be null
+     * @return stream content, or empty string when unavailable
+     * @throws IOException if stream reading fails
+     */
+    private String readStream(InputStream stream) throws IOException {
+        if (stream == null) {
+            return "";
+        }
+
+        StringBuilder response = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+        }
         return response.toString();
     }
 }
