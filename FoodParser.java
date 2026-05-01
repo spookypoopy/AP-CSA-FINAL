@@ -22,8 +22,15 @@ public class FoodParser {
 
     /** Nutrient number for total fat. */
     private static final String FAT_NUMBER = "204";
+
     /** JSON key for ingredient text in food detail responses. */
     private static final String INGREDIENTS_KEY = "\"ingredients\":";
+
+    /**
+     * Parsing nutrients: Each nutrient has a USDA number (208=calories, 203=protein, etc.)
+     * The parser searches for "number":"XXX" in JSON, then extracts the "amount" field.
+     * Ingredients are stored as a single string and included in NutritionInfo.
+     */
 
     /**
      * Builds a list of foods by scanning the JSON string.
@@ -111,6 +118,29 @@ public class FoodParser {
                 .replace("\\\\", "\\")
                 .replace("\\n", " ")
                 .replace("\\t", " ");
+    }
+
+    /**
+     * Extracts ingredient information from food-detail JSON.
+     *
+     * @param json raw JSON for one selected food
+     * @return ingredient string, or null if not found
+     */
+    public String parseIngredients(String json) {
+        int ingIndex = json.indexOf(INGREDIENTS_KEY);
+        if (ingIndex != -1) {
+            int start = ingIndex + INGREDIENTS_KEY.length();
+            // skip possible whitespace and opening quote
+            while (start < json.length() && Character.isWhitespace(json.charAt(start))) start++;
+            if (start < json.length() && json.charAt(start) == '"') {
+                start++;
+                int end = findStringEnd(json, start);
+                if (end != -1) {
+                    return unescape(json.substring(start, end));
+                }
+            }
+        }
+        return null;
     }
 
     /**

@@ -1,10 +1,6 @@
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Scanner;
-import java.util.Set;
+import java.nio.file.*;
+import java.util.*;
 
 /**
  * Main class for the console food search program.
@@ -155,6 +151,34 @@ public class FoodSearchApp {
         System.out.println("=============================\n");
     }
 
+
+    /**
+     * Displays a ingredients list for the selected food.
+     *
+     * @param food selected food item
+     * @param nutrition ingredients values for that food
+     */
+    private void displayIngredientsInfo(FoodResult food, NutritionInfo nutrition) {
+        System.out.println("\n=== Ingredients Information ===");
+        System.out.println("Food: " + food.getDescription());
+        String ingredients = nutrition.getIngredients();
+        if (ingredients != null && !ingredients.isEmpty()) {
+            System.out.println("Ingredients:");
+            System.out.println(ingredients);
+        } else {
+            System.out.println("Ingredients: N/A");
+        }
+        System.out.println("=============================\n");
+    }
+
+    /** creates a list for people to store their ingredients in their recipes
+     * @param ingredients the string of ingredients from the API
+     * @return a list of individual ingredients
+     * 
+     */
+    List<String> lines = Arrays.asList("First line", "Second line", "Third line");
+    Files.write(Paths.get("output.txt"), lines);
+
     /**
      * Formats one nutrient value for display.
      *
@@ -199,6 +223,7 @@ public class FoodSearchApp {
             try {
                 NutritionInfo nutritionInfo = getNutritionForFood(selectedFood.getFdcId());
                 displayNutritionInfo(selectedFood, nutritionInfo);
+                displayIngredientsInfo(selectedFood, nutritionInfo);
             } catch (IOException e) {
                 System.out.println("Error fetching nutrition info: " + e.getMessage() + "\n");
             }
