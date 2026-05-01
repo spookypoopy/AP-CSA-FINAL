@@ -165,19 +165,36 @@ public class FoodSearchApp {
         if (ingredients != null && !ingredients.isEmpty()) {
             System.out.println("Ingredients:");
             System.out.println(ingredients);
+            writeIngredientsToFile(food, ingredients);
         } else {
             System.out.println("Ingredients: N/A");
         }
         System.out.println("=============================\n");
     }
 
-    /** creates a list for people to store their ingredients in their recipes
-     * @param ingredients the string of ingredients from the API
-     * @return a list of individual ingredients
-     * 
+    /**
+     * Writes the ingredients for the selected food to a text file.
+     *
+     * @param food selected food item
+     * @param ingredients ingredient text from the API
      */
-    List<String> lines = Arrays.asList("First line", "Second line", "Third line");
-    Files.write(Paths.get("output.txt"), lines);
+    private void writeIngredientsToFile(FoodResult food, String ingredients) {
+        String fileName = food.getDescription().replaceAll("[^a-zA-Z0-9._-]", "_") + "_ingredients.txt";
+        Path filePath = Paths.get(fileName);
+        List<String> lines = Arrays.asList(
+                "Food: " + food.getDescription(),
+                "",
+                "Ingredients:",
+                ingredients
+        );
+
+        try {
+            Files.write(filePath, lines);
+            System.out.println("Ingredients saved to " + fileName);
+        } catch (IOException e) {
+            System.out.println("Could not save ingredients to file: " + e.getMessage());
+        }
+    }
 
     /**
      * Formats one nutrient value for display.
