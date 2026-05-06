@@ -1,0 +1,19 @@
+=== USER PROFILE ===
+Username: John
+Number of Recipes: 1
+
+====================
+Recipe Name: Pasta Carbonara
+
+Ingredients:
+  - Eggs
+  - Bacon
+  - Pasta
+
+Instructions:
+  1. Cook pasta
+  2. Fry bacon
+  3. Mix and serve
+
+Estimated Calories: 500.0 kcal
+

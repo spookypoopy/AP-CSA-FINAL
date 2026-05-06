@@ -250,30 +250,242 @@ public class FoodSearchApp {
     }
 
     /**
-     * Starts the console loop for user input.
+     * Displays the main menu for the app.
+     */
+    private void displayMainMenu() {
+        System.out.println("\n========== MAIN MENU ==========");
+        System.out.println("1. Search Foods");
+        System.out.println("2. Create Recipe");
+        System.out.println("3. View My Recipes");
+        System.out.println("4. Exit");
+        System.out.println("==============================");
+    }
+
+    /**
+     * Handles recipe creation from user input.
+     *
+     * @param scanner for reading user input
+     * @param userProfile user profile to add recipe to
+     */
+    private void handleRecipeCreation(Scanner scanner, UserProfile userProfile) {
+        System.out.println("\n=== CREATE RECIPE ===");
+        System.out.print("Recipe name: ");
+        String recipeName = scanner.nextLine().trim();
+
+        if (recipeName.isEmpty()) {
+            System.out.println("Recipe name cannot be empty.\n");
+            return;
+        }
+
+        if (userProfile.findRecipe(recipeName) != null) {
+            System.out.println("A recipe with that name already exists.\n");
+            return;
+        }
+
+        Recipe recipe = new Recipe(recipeName);
+
+        // Add ingredients
+        System.out.println("Add ingredients (enter empty line when done):");
+        while (true) {
+            System.out.print("Ingredient: ");
+            String ingredient = scanner.nextLine().trim();
+            if (ingredient.isEmpty()) {
+                break;
+            }
+            recipe.addIngredient(ingredient);
+        }
+
+        // Add instructions
+        System.out.println("Add cooking instructions (enter empty line when done):");
+        int stepNum = 1;
+        while (true) {
+            System.out.print("Step " + stepNum + ": ");
+            String instruction = scanner.nextLine().trim();
+            if (instruction.isEmpty()) {
+                break;
+            }
+            recipe.addInstruction(instruction);
+            stepNum++;
+        }
+
+        // Add calorie estimate
+        System.out.print("Estimated calories (0 if unknown): ");
+        try {
+            String calorieInput = scanner.nextLine().trim();
+            if (!calorieInput.isEmpty()) {
+                double calories = Double.parseDouble(calorieInput);
+                recipe.setCaloriesEstimate(calories);
+            }
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid calorie input, set to 0.");
+            recipe.setCaloriesEstimate(0);
+        }
+
+        userProfile.addRecipe(recipe);
+        System.out.println("Recipe '" + recipeName + "' created successfully!");
+
+        try {
+            userProfile.saveProfile();
+        } catch (IOException e) {
+            System.out.println("Error saving profile: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Displays all user recipes with the option to view details.
+     *
+     * @param scanner for reading user input
+     * @param userProfile user profile to display recipes from
+     */
+    private void displayUserRecipes(Scanner scanner, UserProfile userProfile) {
+        if (userProfile.getRecipes().isEmpty()) {
+            System.out.println("\nYou have no recipes yet. Create one to get started!\n");
+            return;
+        }
+
+        while (true) {
+            userProfile.displayRecipes();
+            System.out.print("Enter recipe number to view, or '0' to return to menu: ");
+            String input = scanner.nextLine().trim();
+
+            if (input.equals("0")) {
+                break;
+            }
+
+            try {
+                int choice = Integer.parseInt(input);
+                if (choice > 0 && choice <= userProfile.getRecipes().size()) {
+                    Recipe recipe = userProfile.getRecipes().get(choice - 1);
+                    System.out.println("\n" + recipe.toString());
+
+                    System.out.print("Delete this recipe? (yes/no): ");
+                    String deleteChoice = scanner.nextLine().trim().toLowerCase();
+                    if (deleteChoice.equals("yes")) {
+                        userProfile.removeRecipe(recipe.getRecipeName());
+                        try {
+                            userProfile.saveProfile();
+                            System.out.println("Recipe deleted.\n");
+                        } catch (IOException e) {
+                            System.out.println("Error saving profile: " + e.getMessage());
+                        }
+                    }
+                } else {
+                    System.out.println("Invalid recipe number.\n");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Please enter a valid number.\n");
+            }
+        }
+    }
+
+    /**
+     * Runs the interactive search mode where users search for foods.
+     *
+     * @param scanner for reading user input
+     * @return true if user wants to return to main menu, false if exiting
+     */
+    private boolean runSearchMode(Scanner scanner) {
+        System.out.println("\n=== FOOD SEARCH ===");
+        System.out.println("(Type 'menu' to return to main menu)\n");
+
+        while (true) {
+            System.out.print("Search for a food: ");
+            if (!scanner.hasNextLine()) {
+                return false;
+            }
+            String searchQuery = scanner.nextLine().trim();
+
+            if (searchQuery.equalsIgnoreCase("menu")) {
+                return true;
+            }
+
+            if (searchQuery.isEmpty()) {
+                System.out.println("Please enter a food name.\n");
+                continue;
+            }
+
+            handleSearchRequest(searchQuery, scanner);
+        }
+    }
+
+    /**
+     * Gets username from user input at startup.
+     *
+     * @param scanner for reading user input
+     * @return username entered by user
+     */
+    private String getUsernameInput(Scanner scanner) {
+        System.out.println("=== WELCOME TO FOOD SEARCH APP ===\n");
+        System.out.print("Enter your name: ");
+        String username = scanner.nextLine().trim();
+
+        while (username.isEmpty()) {
+            System.out.print("Name cannot be empty. Please enter your name: ");
+            username = scanner.nextLine().trim();
+        }
+
+        return username;
+    }
+
+    /**
+     * Starts the console loop for user input with menu system.
      *
      * @param args command-line arguments (not used in this app)
      */
     public static void main(String[] args) {
         FoodSearchApp app = new FoodSearchApp();
         try (Scanner scanner = new Scanner(System.in)) {
-            System.out.println("=== FOOD SEARCH ===");
-            System.out.println("Type 'exit' to quit. Search any food by name.\n");
+            // Get username at startup
+            String username = app.getUsernameInput(scanner);
 
-            while (true) {
-                System.out.print("Search for a food: ");
+            // Load or create user profile
+            UserProfile userProfile = null;
+            try {
+                userProfile = UserProfile.loadProfile(username);
+                System.out.println("Welcome back, " + username + "!\n");
+            } catch (IOException e) {
+                System.out.println("Error loading profile: " + e.getMessage());
+                System.out.println("Creating new profile for " + username + ".\n");
+                userProfile = new UserProfile(username);
+            }
+
+            // Main menu loop
+            boolean running = true;
+            while (running) {
+                app.displayMainMenu();
+                System.out.print("Choice: ");
+
                 if (!scanner.hasNextLine()) {
                     break;
                 }
-                String searchQuery = scanner.nextLine().trim();
+                String choice = scanner.nextLine().trim();
 
-                // Exit command
-                if (searchQuery.equalsIgnoreCase("exit")) {
-                    break;
+                switch (choice) {
+                    case "1":
+                        boolean returnFromSearch = app.runSearchMode(scanner);
+                        if (!returnFromSearch) {
+                            running = false;
+                        }
+                        break;
+                    case "2":
+                        app.handleRecipeCreation(scanner, userProfile);
+                        break;
+                    case "3":
+                        app.displayUserRecipes(scanner, userProfile);
+                        break;
+                    case "4":
+                        running = false;
+                        break;
+                    default:
+                        System.out.println("Invalid choice. Please enter 1, 2, 3, or 4.\n");
                 }
+            }
 
-                // Delegate the search handling to a small helper to keep main readable
-                app.handleSearchRequest(searchQuery, scanner);
+            // Final save before exit
+            try {
+                userProfile.saveProfile();
+            } catch (IOException e) {
+                System.out.println("Error saving profile: " + e.getMessage());
             }
         }
 
