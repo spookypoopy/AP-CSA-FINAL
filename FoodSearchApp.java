@@ -284,15 +284,71 @@ public class FoodSearchApp {
 
         Recipe recipe = new Recipe(recipeName);
 
-        // Add ingredients
-        System.out.println("Add ingredients (enter empty line when done):");
-        while (true) {
-            System.out.print("Ingredient: ");
-            String ingredient = scanner.nextLine().trim();
-            if (ingredient.isEmpty()) {
-                break;
+        // Choose ingredient input method
+        System.out.println("Choose ingredient input method:");
+        System.out.println("1. Enter custom ingredients manually");
+        System.out.println("2. Search foods and add ingredients with nutrition aggregation");
+        System.out.print("Choice (1 or 2): ");
+        String methodChoice = scanner.nextLine().trim();
+
+        if (methodChoice.equals("2")) {
+            // Search-based ingredient adding
+            System.out.println("(Type empty line to finish adding searched ingredients)");
+            while (true) {
+                System.out.print("Search for a food to add (or press Enter to finish): ");
+                String query = scanner.nextLine().trim();
+                if (query.isEmpty()) break;
+
+                try {
+                    List<FoodResult> apiResults = searchFoods(query);
+                    if (apiResults.isEmpty()) {
+                        System.out.println("No results found for: " + query);
+                        continue;
+                    }
+
+                    FoodResult selectedFood = displayResultsWithPagination(apiResults, scanner);
+                    if (selectedFood == null) continue;
+
+                    NutritionInfo nutrition = null;
+                    try {
+                        nutrition = getNutritionForFood(selectedFood.getFdcId());
+                        displayNutritionInfo(selectedFood, nutrition);
+                    } catch (IOException e) {
+                        System.out.println("Error fetching nutrition info: " + e.getMessage());
+                        continue;
+                    }
+
+                    // Ask for multiplier / servings
+                    System.out.print("Enter number of servings (e.g. 1, 0.5): ");
+                    String servStr = scanner.nextLine().trim();
+                    double servings = 1.0;
+                    try {
+                        if (!servStr.isEmpty()) servings = Double.parseDouble(servStr);
+                    } catch (NumberFormatException e) {
+                        System.out.println("Invalid number, using 1 serving.");
+                        servings = 1.0;
+                    }
+
+                    String ingredientLine = servings + " x " + selectedFood.getDescription();
+                    recipe.addIngredient(ingredientLine);
+                    recipe.addNutrition(nutrition, servings);
+                    System.out.println("Added: " + ingredientLine + " (nutrition aggregated)");
+
+                } catch (IOException e) {
+                    System.out.println("Error searching for foods: " + e.getMessage());
+                }
             }
-            recipe.addIngredient(ingredient);
+        } else {
+            // Default to manual ingredient entry
+            System.out.println("Add ingredients (enter empty line when done):");
+            while (true) {
+                System.out.print("Ingredient: ");
+                String ingredient = scanner.nextLine().trim();
+                if (ingredient.isEmpty()) {
+                    break;
+                }
+                recipe.addIngredient(ingredient);
+            }
         }
 
         // Add instructions
@@ -308,17 +364,23 @@ public class FoodSearchApp {
             stepNum++;
         }
 
-        // Add calorie estimate
-        System.out.print("Estimated calories (0 if unknown): ");
-        try {
-            String calorieInput = scanner.nextLine().trim();
-            if (!calorieInput.isEmpty()) {
-                double calories = Double.parseDouble(calorieInput);
-                recipe.setCaloriesEstimate(calories);
+        // If nutrition was aggregated from searches, use that as the estimate when available
+        if (recipe.getTotalCalories() > 0) {
+            recipe.setCaloriesEstimate(recipe.getTotalCalories());
+            System.out.println("Estimated calories set from aggregated nutrition: " + recipe.getTotalCalories());
+        } else {
+            // Add calorie estimate
+            System.out.print("Estimated calories (0 if unknown): ");
+            try {
+                String calorieInput = scanner.nextLine().trim();
+                if (!calorieInput.isEmpty()) {
+                    double calories = Double.parseDouble(calorieInput);
+                    recipe.setCaloriesEstimate(calories);
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid calorie input, set to 0.");
+                recipe.setCaloriesEstimate(0);
             }
-        } catch (NumberFormatException e) {
-            System.out.println("Invalid calorie input, set to 0.");
-            recipe.setCaloriesEstimate(0);
         }
 
         userProfile.addRecipe(recipe);

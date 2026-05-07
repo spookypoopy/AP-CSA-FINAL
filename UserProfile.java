@@ -148,6 +148,16 @@ public class UserProfile {
             lines.add("");
 
             lines.add("Estimated Calories: " + recipe.getCaloriesEstimate() + " kcal");
+            // Save aggregated nutrition when present
+            if (recipe.getTotalCalories() > 0 || recipe.getTotalProtein() > 0 || recipe.getTotalCarbs() > 0 || recipe.getTotalFat() > 0) {
+                lines.add("");
+                lines.add("Aggregated Nutrition:");
+                lines.add("  Calories: " + recipe.getTotalCalories());
+                lines.add("  Protein: " + recipe.getTotalProtein() + " g");
+                lines.add("  Carbs: " + recipe.getTotalCarbs() + " g");
+                lines.add("  Fat: " + recipe.getTotalFat() + " g");
+                lines.add("");
+            }
             lines.add("");
         }
 
@@ -176,13 +186,34 @@ public class UserProfile {
         Recipe currentRecipe = null;
         boolean readingIngredients = false;
         boolean readingInstructions = false;
+        boolean readingAggregated = false;
+        double aggCalories = -1;
+        double aggProtein = -1;
+        double aggCarbs = -1;
+        double aggFat = -1;
 
         for (String line : lines) {
             line = line.trim();
 
             if (line.isEmpty() || line.startsWith("===") || line.startsWith("--")) {
+                // If we were reading an aggregated block, attach it to the current recipe
+                if (readingAggregated && currentRecipe != null) {
+                        NutritionInfo info = new NutritionInfo(
+                            aggCalories >= 0 ? aggCalories : -1,
+                            aggProtein >= 0 ? aggProtein : -1,
+                            aggCarbs >= 0 ? aggCarbs : -1,
+                            aggFat >= 0 ? aggFat : -1,
+                            null,
+                            -1,
+                            -1
+                        );
+                    currentRecipe.addNutrition(info, 1.0);
+                }
                 readingIngredients = false;
                 readingInstructions = false;
+                readingAggregated = false;
+                // reset aggregated vars
+                aggCalories = aggProtein = aggCarbs = aggFat = -1;
                 continue;
             }
 
@@ -197,9 +228,18 @@ public class UserProfile {
             } else if (line.equals("Ingredients:")) {
                 readingIngredients = true;
                 readingInstructions = false;
+                readingAggregated = false;
             } else if (line.equals("Instructions:")) {
                 readingInstructions = true;
                 readingIngredients = false;
+                readingAggregated = false;
+            } else if (line.equals("Aggregated Nutrition:")) {
+                // Begin aggregated nutrition block
+                readingAggregated = true;
+                readingIngredients = false;
+                readingInstructions = false;
+                aggCalories = aggProtein = aggCarbs = aggFat = -1;
+                continue;
             } else if (line.startsWith("Estimated Calories:")) {
                 if (currentRecipe != null) {
                     String caloriesStr = line.substring("Estimated Calories:".length()).trim();
@@ -225,6 +265,21 @@ public class UserProfile {
                     if (!instruction.equals("(none)")) {
                         currentRecipe.addInstruction(instruction);
                     }
+                }
+            } else if (readingAggregated) {
+                // Parse aggregated nutrition lines like "Calories: 123.4" or "Protein: 5.0 g"
+                if (line.startsWith("Calories:")) {
+                    String v = line.substring("Calories:".length()).trim();
+                    try { aggCalories = Double.parseDouble(v); } catch (NumberFormatException e) { }
+                } else if (line.startsWith("Protein:")) {
+                    String v = line.substring("Protein:".length()).trim().replace(" g", "");
+                    try { aggProtein = Double.parseDouble(v); } catch (NumberFormatException e) { }
+                } else if (line.startsWith("Carbs:")) {
+                    String v = line.substring("Carbs:".length()).trim().replace(" g", "");
+                    try { aggCarbs = Double.parseDouble(v); } catch (NumberFormatException e) { }
+                } else if (line.startsWith("Fat:")) {
+                    String v = line.substring("Fat:".length()).trim().replace(" g", "");
+                    try { aggFat = Double.parseDouble(v); } catch (NumberFormatException e) { }
                 }
             }
         }

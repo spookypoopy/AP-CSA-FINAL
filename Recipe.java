@@ -16,6 +16,17 @@ public class Recipe {
 
     /** Estimated calories for the recipe. */
     private double caloriesEstimate;
+    /** Aggregated calories from searched ingredients. */
+    private double totalCalories;
+
+    /** Aggregated protein in grams from searched ingredients. */
+    private double totalProtein;
+
+    /** Aggregated carbs in grams from searched ingredients. */
+    private double totalCarbs;
+
+    /** Aggregated fat in grams from searched ingredients. */
+    private double totalFat;
 
     /**
      * Creates a new recipe with the given name.
@@ -27,7 +38,31 @@ public class Recipe {
         this.ingredients = new ArrayList<>();
         this.instructions = new ArrayList<>();
         this.caloriesEstimate = 0;
+        this.totalCalories = 0;
+        this.totalProtein = 0;
+        this.totalCarbs = 0;
+        this.totalFat = 0;
     }
+
+    /**
+     * Adds nutrition values to the recipe totals (for searched ingredients).
+     *
+     * @param info nutrition info to add
+     * @param multiplier multiplier (e.g., number of servings)
+     */
+    public void addNutrition(NutritionInfo info, double multiplier) {
+        if (info == null) return;
+        double m = multiplier <= 0 ? 1.0 : multiplier;
+        if (info.getCalories() >= 0) this.totalCalories += info.getCalories() * m;
+        if (info.getProtein() >= 0) this.totalProtein += info.getProtein() * m;
+        if (info.getCarbs() >= 0) this.totalCarbs += info.getCarbs() * m;
+        if (info.getFat() >= 0) this.totalFat += info.getFat() * m;
+    }
+
+    public double getTotalCalories() { return totalCalories; }
+    public double getTotalProtein() { return totalProtein; }
+    public double getTotalCarbs() { return totalCarbs; }
+    public double getTotalFat() { return totalFat; }
 
     /**
      * Gets the recipe name.
@@ -110,6 +145,13 @@ public class Recipe {
             sb.append((i + 1)).append(". ").append(instructions.get(i)).append("\n");
         }
         sb.append("Estimated Calories: ").append(caloriesEstimate).append(" kcal\n");
+        if (totalCalories > 0 || totalProtein > 0 || totalCarbs > 0 || totalFat > 0) {
+            sb.append("--- Aggregated Nutrition (from searched ingredients) ---\n");
+            sb.append(String.format("Calories: %.1f kcal\n", totalCalories));
+            sb.append(String.format("Protein:  %.1f g\n", totalProtein));
+            sb.append(String.format("Carbs:    %.1f g\n", totalCarbs));
+            sb.append(String.format("Fat:      %.1f g\n", totalFat));
+        }
         return sb.toString();
     }
 }

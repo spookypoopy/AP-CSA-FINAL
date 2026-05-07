@@ -22,6 +22,10 @@ public class FoodParser {
 
     /** Nutrient number for total fat. */
     private static final String FAT_NUMBER = "204";
+    /** Nutrient number for fiber. */
+    private static final String FIBER_NUMBER = "291";
+    /** Nutrient number for sugars. */
+    private static final String SUGAR_NUMBER = "269";
 
     /** JSON key for ingredient text in food detail responses. */
     private static final String INGREDIENTS_KEY = "\"ingredients\":";
@@ -154,6 +158,8 @@ public class FoodParser {
         double protein = findAmountByNutrientNumber(json, PROTEIN_NUMBER);
         double carbs = findAmountByNutrientNumber(json, CARB_NUMBER);
         double fat = findAmountByNutrientNumber(json, FAT_NUMBER);
+        double fiber = findAmountByNutrientNumber(json, FIBER_NUMBER);
+        double sugar = findAmountByNutrientNumber(json, SUGAR_NUMBER);
 
         // Try to extract an ingredients string when present
         String ingredients = null;
@@ -171,7 +177,7 @@ public class FoodParser {
             }
         }
 
-        return new NutritionInfo(calories, protein, carbs, fat, ingredients);
+        return new NutritionInfo(calories, protein, carbs, fat, ingredients, fiber, sugar);
     }
 
     /**
@@ -182,44 +188,57 @@ public class FoodParser {
      * @return nutrient amount, or -1 when missing
      */
     private double findAmountByNutrientNumber(String json, String nutrientNumber) {
-        String numberKey = "\"number\":\"" + nutrientNumber + "\"";
-        int numberIndex = json.indexOf(numberKey);
+        // Try multiple patterns for the nutrient number key (quoted and unquoted forms)
+        String[] numberKeys = new String[] {
+                "\"number\":\"" + nutrientNumber + "\"",
+                "\"number\":" + nutrientNumber,
+                "\"nutrientNumber\":\"" + nutrientNumber + "\"",
+                "\"nutrientNumber\":" + nutrientNumber
+        };
+
+        int numberIndex = -1;
+        for (String k : numberKeys) {
+            numberIndex = json.indexOf(k);
+            if (numberIndex != -1) break;
+        }
+
         if (numberIndex == -1) {
             return -1;
         }
 
-        // Search FORWARD from the nutrient number to find the "amount" field
-        // This ensures we get the amount for THIS nutrient, not a different one
+        // Search forward from the nutrient number to find the "amount" field for this nutrient
         int amountIndex = json.indexOf("\"amount\":", numberIndex);
         if (amountIndex == -1) {
-            return -1;
+            // Try unquoted amount key as fallback
+            amountIndex = json.indexOf("amount:", numberIndex);
+            if (amountIndex == -1) return -1;
         }
 
         int valueStart = amountIndex + "\"amount\":".length();
         int valueEnd = valueStart;
 
-        // Skip whitespace
-        while (valueEnd < json.length() && Character.isWhitespace(json.charAt(valueEnd))) {
-            valueEnd++;
-        }
+        // Skip whitespace and optional quotes
+        while (valueStart < json.length() && Character.isWhitespace(json.charAt(valueStart))) valueStart++;
+        if (valueStart < json.length() && json.charAt(valueStart) == '"') valueStart++;
+        valueEnd = valueStart;
 
-        // Parse the numeric value
-        int numStart = valueEnd;
+        // Parse the numeric value (allow digits, dot, minus, and scientific notation 'e'/'E')
         while (valueEnd < json.length()) {
             char c = json.charAt(valueEnd);
-            if (Character.isDigit(c) || c == '.' || c == '-') {
+            if (Character.isDigit(c) || c == '.' || c == '-' || c == 'e' || c == 'E' || c == '+') {
                 valueEnd++;
             } else {
                 break;
             }
         }
 
-        if (numStart == valueEnd) {
-            return -1;
-        }
+        if (valueStart == valueEnd) return -1;
 
+        String numStr = json.substring(valueStart, valueEnd);
+        // Trim trailing non-numeric characters
+        numStr = numStr.replaceAll("[^0-9eE+\\-\\.]", "");
         try {
-            return Double.parseDouble(json.substring(numStart, valueEnd));
+            return Double.parseDouble(numStr);
         } catch (NumberFormatException e) {
             return -1;
         }

@@ -17,6 +17,12 @@ public class NutritionInfo {
     /** Ingredients text (may be null when not provided). */
     private final String ingredients;
 
+    /** Dietary fiber in grams. */
+    private final double fiber;
+
+    /** Sugars in grams. */
+    private final double sugar;
+
     /**
      * Creates a nutrition info object.
      *
@@ -25,12 +31,14 @@ public class NutritionInfo {
      * @param carbs carbs in grams
      * @param fat fat in grams
      */
-    public NutritionInfo(double calories, double protein, double carbs, double fat, String ingredients) {
+    public NutritionInfo(double calories, double protein, double carbs, double fat, String ingredients, double fiber, double sugar) {
         this.calories = calories;
         this.protein = protein;
         this.carbs = carbs;
         this.fat = fat;
         this.ingredients = ingredients;
+        this.fiber = fiber;
+        this.sugar = sugar;
     }
 
     /**
@@ -76,5 +84,19 @@ public class NutritionInfo {
      */
     public double getFat() {
         return fat;
+    }
+
+    /**
+     * Returns dietary fiber in grams, or -1 when unknown.
+     */
+    public double getFiber() {
+        return fiber;
+    }
+
+    /**
+     * Returns sugars in grams, or -1 when unknown.
+     */
+    public double getSugar() {
+        return sugar;
     }
 }

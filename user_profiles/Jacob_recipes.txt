@@ -1,0 +1,19 @@
+=== USER PROFILE ===
+Username: Jacob
+Number of Recipes: 1
+
+====================
+Recipe Name: Brandon
+
+Ingredients:
+  - High tide
+  - Tuna
+  - Baka
+
+Instructions:
+  1. baka
+  2. baka
+  3. bak
+
+Estimated Calories: 1000.0 kcal
+
