@@ -9,6 +9,9 @@ Console-based USDA food search app and personal recipe manager for AP CSA.
 - **User Profiles**: Create and manage personal accounts with automatic save/load
 - **Recipe Management**: Create, save, and organize recipes with ingredients and instructions
 - **Nutrition Tracking**: Automatic aggregation of macronutrients from searched foods
+- **Daily Planner & Food Log**: Set goals and log saved recipes against daily calories and macros
+- **Meal Slots**: Label log entries as breakfast, lunch, dinner, or snack
+- **Instant Food Logging**: Log a searched food right after viewing its nutrition summary
 - **Persistent Storage**: All user data saved to local text files
 
 ### Advanced Features
@@ -218,6 +221,13 @@ java -cp bin FoodSearchApp
 - See numbered list of all recipes
 - Select a recipe to view full details including aggregated nutrition
 - Delete recipes as needed
+
+### 7. **Daily Planner & Food Log**
+- Set daily calorie, protein, carbs, and fat goals
+- Log any saved recipe as a meal or snack
+- Log a searched food immediately after inspecting it
+- See your running totals compared to those goals
+- Clear the current day's log when you want a fresh start
 
 ## File Structure
 

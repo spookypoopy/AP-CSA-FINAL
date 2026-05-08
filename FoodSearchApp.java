@@ -173,6 +173,81 @@ public class FoodSearchApp {
     }
 
     /**
+     * Prompts the user to choose a meal slot.
+     *
+     * @param scanner input reader
+     * @return meal slot label
+     */
+    private String promptForMealSlot(Scanner scanner) {
+        System.out.println("Choose a meal slot:");
+        System.out.println("1. Breakfast");
+        System.out.println("2. Lunch");
+        System.out.println("3. Dinner");
+        System.out.println("4. Snack");
+        System.out.print("Choice [4]: ");
+
+        String input = scanner.nextLine().trim();
+        switch (input) {
+            case "1":
+                return "Breakfast";
+            case "2":
+                return "Lunch";
+            case "3":
+                return "Dinner";
+            case "4":
+            case "":
+                return "Snack";
+            default:
+                return input;
+        }
+    }
+
+    /**
+     * Prompts the user to enter servings with a default of 1.
+     *
+     * @param scanner input reader
+     * @return servings amount
+     */
+    private double promptForServings(Scanner scanner) {
+        System.out.print("Enter servings [1]: ");
+        String servingsText = scanner.nextLine().trim();
+        if (servingsText.isEmpty()) {
+            return 1.0;
+        }
+
+        try {
+            return Double.parseDouble(servingsText);
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid servings number, using 1.");
+            return 1.0;
+        }
+    }
+
+    /**
+     * Logs a nutrition result into the user\'s food log.
+     *
+     * @param scanner input reader
+     * @param userProfile user profile to update
+     * @param itemName name of the food or recipe
+     * @param nutrition nutrition values to store
+     */
+    private void logNutritionItem(Scanner scanner, UserProfile userProfile, String itemName, NutritionInfo nutrition) {
+        String mealSlot = promptForMealSlot(scanner);
+        double servings = promptForServings(scanner);
+
+        FoodLogEntry entry = new FoodLogEntry(
+                mealSlot,
+                itemName,
+                nutrition.getCalories() * servings,
+                nutrition.getProtein() * servings,
+                nutrition.getCarbs() * servings,
+                nutrition.getFat() * servings);
+
+        userProfile.addFoodLogEntry(entry);
+        System.out.println("Logged: " + entry + "\n");
+    }
+
+    /**
      * Writes the ingredients for the selected food to a text file.
      *
      * @param food selected food item
@@ -215,7 +290,7 @@ public class FoodSearchApp {
      * This method performs the search, shows results, and fetches nutrition
      * information for the selected item.
      */
-    private void handleSearchRequest(String searchQuery, Scanner scanner) {
+    private void handleSearchRequest(String searchQuery, Scanner scanner, UserProfile userProfile) {
         if (searchQuery.isEmpty()) {
             System.out.println("Please enter a food name.\n");
             return;
@@ -241,6 +316,17 @@ public class FoodSearchApp {
                 NutritionInfo nutritionInfo = getNutritionForFood(selectedFood.getFdcId());
                 displayNutritionInfo(selectedFood, nutritionInfo);
                 displayIngredientsInfo(selectedFood, nutritionInfo);
+
+                System.out.print("Log this food to your planner now? (yes/no): ");
+                String logChoice = scanner.nextLine().trim().toLowerCase();
+                if (logChoice.equals("yes") || logChoice.equals("y")) {
+                    logNutritionItem(scanner, userProfile, selectedFood.getDescription(), nutritionInfo);
+                    try {
+                        userProfile.saveProfile();
+                    } catch (IOException e) {
+                        System.out.println("Error saving profile: " + e.getMessage());
+                    }
+                }
             } catch (IOException e) {
                 System.out.println("Error fetching nutrition info: " + e.getMessage() + "\n");
             }
@@ -257,8 +343,176 @@ public class FoodSearchApp {
         System.out.println("1. Search Foods");
         System.out.println("2. Create Recipe");
         System.out.println("3. View My Recipes");
-        System.out.println("4. Exit");
+        System.out.println("4. Daily Planner & Food Log");
+        System.out.println("5. Exit");
         System.out.println("==============================");
+    }
+
+    /**
+     * Displays the daily goal summary and food log.
+     *
+     * @param userProfile current user profile
+     */
+    private void displayDailyPlanner(UserProfile userProfile) {
+        double totalCalories = 0;
+        double totalProtein = 0;
+        double totalCarbs = 0;
+        double totalFat = 0;
+
+        List<FoodLogEntry> todaysEntries = userProfile.getTodaysFoodLogEntries();
+
+        for (FoodLogEntry entry : todaysEntries) {
+            totalCalories += entry.getCalories();
+            totalProtein += entry.getProtein();
+            totalCarbs += entry.getCarbs();
+            totalFat += entry.getFat();
+        }
+
+        System.out.println("\n=== DAILY PLANNER ===");
+        System.out.println("Goals:");
+        System.out.println("Calories: " + formatNutrient(userProfile.getDailyCalorieGoal()) + " kcal");
+        System.out.println("Protein:  " + formatNutrient(userProfile.getDailyProteinGoal()) + " g");
+        System.out.println("Carbs:    " + formatNutrient(userProfile.getDailyCarbGoal()) + " g");
+        System.out.println("Fat:      " + formatNutrient(userProfile.getDailyFatGoal()) + " g");
+        System.out.println("\nConsumed Today:");
+        System.out.println("Calories: " + formatNutrient(totalCalories) + " kcal");
+        System.out.println("Protein:  " + formatNutrient(totalProtein) + " g");
+        System.out.println("Carbs:    " + formatNutrient(totalCarbs) + " g");
+        System.out.println("Fat:      " + formatNutrient(totalFat) + " g");
+
+        if (todaysEntries.isEmpty()) {
+            System.out.println("\nNo food logged yet.");
+        } else {
+            System.out.println("\nFood Log Entries:");
+            for (int i = 0; i < todaysEntries.size(); i++) {
+                System.out.println((i + 1) + ". " + todaysEntries.get(i));
+            }
+        }
+
+        System.out.println("\n1. Set daily goals");
+        System.out.println("2. Log a saved recipe");
+        System.out.println("3. Clear today's log");
+        System.out.println("0. Return to menu");
+    }
+
+    /**
+     * Prompts for a double value while preserving the current value on blank input.
+     *
+     * @param scanner input reader
+     * @param label prompt label
+     * @param currentValue current value to keep on blank input
+     * @return parsed value or current value
+     */
+    private double promptForDouble(Scanner scanner, String label, double currentValue) {
+        System.out.print(label + " [current " + formatNutrient(currentValue) + "]: ");
+        String input = scanner.nextLine().trim();
+        if (input.isEmpty()) {
+            return currentValue;
+        }
+
+        try {
+            return Double.parseDouble(input);
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid number, keeping current value.");
+            return currentValue;
+        }
+    }
+
+    /**
+     * Lets the user update daily calorie and macro goals.
+     *
+     * @param scanner input reader
+     * @param userProfile profile to update
+     */
+    private void setDailyGoals(Scanner scanner, UserProfile userProfile) {
+        System.out.println("\n=== SET DAILY GOALS ===");
+        userProfile.setDailyGoals(
+                promptForDouble(scanner, "Calories goal", userProfile.getDailyCalorieGoal()),
+                promptForDouble(scanner, "Protein goal (g)", userProfile.getDailyProteinGoal()),
+                promptForDouble(scanner, "Carbs goal (g)", userProfile.getDailyCarbGoal()),
+                promptForDouble(scanner, "Fat goal (g)", userProfile.getDailyFatGoal()));
+        System.out.println("Daily goals updated.\n");
+    }
+
+    /**
+     * Logs one saved recipe into the food log.
+     *
+     * @param scanner input reader
+     * @param userProfile profile containing recipes and logs
+     */
+    private void logSavedRecipe(Scanner scanner, UserProfile userProfile) {
+        if (userProfile.getRecipes().isEmpty()) {
+            System.out.println("\nYou do not have any saved recipes to log yet.\n");
+            return;
+        }
+
+        System.out.println("\n=== LOG SAVED RECIPE ===");
+        for (int i = 0; i < userProfile.getRecipes().size(); i++) {
+            System.out.println((i + 1) + ". " + userProfile.getRecipes().get(i).getRecipeName());
+        }
+        System.out.print("Choose a recipe number: ");
+
+        String input = scanner.nextLine().trim();
+        try {
+            int choice = Integer.parseInt(input);
+            if (choice < 1 || choice > userProfile.getRecipes().size()) {
+                System.out.println("Invalid recipe number.\n");
+                return;
+            }
+
+            Recipe recipe = userProfile.getRecipes().get(choice - 1);
+            String mealSlot = promptForMealSlot(scanner);
+            double servings = promptForServings(scanner);
+
+            double calories = recipe.getTotalCalories() > 0 ? recipe.getTotalCalories() : recipe.getCaloriesEstimate();
+            double protein = recipe.getTotalProtein();
+            double carbs = recipe.getTotalCarbs();
+            double fat = recipe.getTotalFat();
+
+            FoodLogEntry entry = new FoodLogEntry(
+                    mealSlot,
+                    recipe.getRecipeName(),
+                    calories * servings,
+                    protein * servings,
+                    carbs * servings,
+                    fat * servings);
+
+            userProfile.addFoodLogEntry(entry);
+            System.out.println("Logged: " + entry + "\n");
+        } catch (NumberFormatException e) {
+            System.out.println("Please enter a valid number.\n");
+        }
+    }
+
+    /**
+     * Handles the planner and log submenu.
+     *
+     * @param scanner input reader
+     * @param userProfile profile to manage
+     */
+    private void handlePlannerMenu(Scanner scanner, UserProfile userProfile) {
+        while (true) {
+            displayDailyPlanner(userProfile);
+            System.out.print("Choice: ");
+            String choice = scanner.nextLine().trim();
+
+            switch (choice) {
+                case "1":
+                    setDailyGoals(scanner, userProfile);
+                    break;
+                case "2":
+                    logSavedRecipe(scanner, userProfile);
+                    break;
+                case "3":
+                    userProfile.clearTodaysFoodLogEntries();
+                    System.out.println("Today's food log was cleared.\n");
+                    break;
+                case "0":
+                    return;
+                default:
+                    System.out.println("Invalid choice. Please enter 0, 1, 2, or 3.\n");
+            }
+        }
     }
 
     /**
@@ -446,7 +700,7 @@ public class FoodSearchApp {
      * @param scanner for reading user input
      * @return true if user wants to return to main menu, false if exiting
      */
-    private boolean runSearchMode(Scanner scanner) {
+    private boolean runSearchMode(Scanner scanner, UserProfile userProfile) {
         System.out.println("\n=== FOOD SEARCH ===");
         System.out.println("(Type 'menu' to return to main menu)\n");
 
@@ -466,7 +720,7 @@ public class FoodSearchApp {
                 continue;
             }
 
-            handleSearchRequest(searchQuery, scanner);
+            handleSearchRequest(searchQuery, scanner, userProfile);
         }
     }
 
@@ -524,7 +778,7 @@ public class FoodSearchApp {
 
                 switch (choice) {
                     case "1":
-                        boolean returnFromSearch = app.runSearchMode(scanner);
+                        boolean returnFromSearch = app.runSearchMode(scanner, userProfile);
                         if (!returnFromSearch) {
                             running = false;
                         }
@@ -536,10 +790,13 @@ public class FoodSearchApp {
                         app.displayUserRecipes(scanner, userProfile);
                         break;
                     case "4":
+                        app.handlePlannerMenu(scanner, userProfile);
+                        break;
+                    case "5":
                         running = false;
                         break;
                     default:
-                        System.out.println("Invalid choice. Please enter 1, 2, 3, or 4.\n");
+                        System.out.println("Invalid choice. Please enter 1, 2, 3, 4, or 5.\n");
                 }
             }
 

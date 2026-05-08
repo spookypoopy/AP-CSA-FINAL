@@ -6,6 +6,13 @@
       "name": "FoodSearchApp",
       "request": "launch",
       "mainClass": "FoodSearchApp",
+      "projectName": "AP-CSA-FINAL_f5f127b7"
+    },
+    {
+      "type": "java",
+      "name": "FoodSearchApp",
+      "request": "launch",
+      "mainClass": "FoodSearchApp",
       "projectName": "AP-CSA-FINAL_d1b011e",
       "preLaunchTask": "compile-java"
     },

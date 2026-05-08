@@ -1,5 +1,6 @@
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -16,6 +17,21 @@ public class UserProfile {
     /** List of recipes created by this user. */
     private List<Recipe> recipes;
 
+    /** Daily food log entries for this user. */
+    private List<FoodLogEntry> foodLogEntries;
+
+    /** Daily calorie goal. */
+    private double dailyCalorieGoal;
+
+    /** Daily protein goal in grams. */
+    private double dailyProteinGoal;
+
+    /** Daily carbs goal in grams. */
+    private double dailyCarbGoal;
+
+    /** Daily fat goal in grams. */
+    private double dailyFatGoal;
+
     /** Directory where user profile files are stored. */
     private static final String PROFILES_DIR = "user_profiles";
 
@@ -27,6 +43,11 @@ public class UserProfile {
     public UserProfile(String username) {
         this.username = username;
         this.recipes = new ArrayList<>();
+        this.foodLogEntries = new ArrayList<>();
+        this.dailyCalorieGoal = 2000.0;
+        this.dailyProteinGoal = 150.0;
+        this.dailyCarbGoal = 250.0;
+        this.dailyFatGoal = 70.0;
         ensureProfilesDirectoryExists();
     }
 
@@ -46,6 +67,77 @@ public class UserProfile {
      */
     public List<Recipe> getRecipes() {
         return recipes;
+    }
+
+    /**
+     * Gets all food log entries.
+     *
+     * @return list of food log entries
+     */
+    public List<FoodLogEntry> getFoodLogEntries() {
+        return foodLogEntries;
+    }
+
+    /**
+     * Gets only the food log entries from today.
+     *
+     * @return list of today's food log entries
+     */
+    public List<FoodLogEntry> getTodaysFoodLogEntries() {
+        List<FoodLogEntry> todaysEntries = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+
+        for (FoodLogEntry entry : foodLogEntries) {
+            if (entry.getTimestamp().toLocalDate().equals(today)) {
+                todaysEntries.add(entry);
+            }
+        }
+
+        return todaysEntries;
+    }
+
+    /**
+     * Sets the daily goals.
+     *
+     * @param calories calorie goal
+     * @param protein protein goal
+     * @param carbs carbs goal
+     * @param fat fat goal
+     */
+    public void setDailyGoals(double calories, double protein, double carbs, double fat) {
+        this.dailyCalorieGoal = calories;
+        this.dailyProteinGoal = protein;
+        this.dailyCarbGoal = carbs;
+        this.dailyFatGoal = fat;
+    }
+
+    public double getDailyCalorieGoal() { return dailyCalorieGoal; }
+    public double getDailyProteinGoal() { return dailyProteinGoal; }
+    public double getDailyCarbGoal() { return dailyCarbGoal; }
+    public double getDailyFatGoal() { return dailyFatGoal; }
+
+    /**
+     * Adds one food log entry.
+     *
+     * @param entry food log entry
+     */
+    public void addFoodLogEntry(FoodLogEntry entry) {
+        foodLogEntries.add(entry);
+    }
+
+    /**
+     * Removes all food log entries.
+     */
+    public void clearFoodLogEntries() {
+        foodLogEntries.clear();
+    }
+
+    /**
+     * Removes only today's food log entries.
+     */
+    public void clearTodaysFoodLogEntries() {
+        LocalDate today = LocalDate.now();
+        foodLogEntries.removeIf(entry -> entry.getTimestamp().toLocalDate().equals(today));
     }
 
     /**
@@ -120,6 +212,19 @@ public class UserProfile {
         lines.add("=== USER PROFILE ===");
         lines.add("Username: " + username);
         lines.add("Number of Recipes: " + recipes.size());
+        lines.add("Daily Goals:");
+        lines.add("  Calories: " + dailyCalorieGoal);
+        lines.add("  Protein: " + dailyProteinGoal + " g");
+        lines.add("  Carbs: " + dailyCarbGoal + " g");
+        lines.add("  Fat: " + dailyFatGoal + " g");
+        lines.add("Food Log:");
+        if (foodLogEntries.isEmpty()) {
+            lines.add("  (none)");
+        } else {
+            for (FoodLogEntry entry : foodLogEntries) {
+                lines.add("  " + entry.toStorageLine());
+            }
+        }
         lines.add("");
 
         for (Recipe recipe : recipes) {
@@ -187,6 +292,7 @@ public class UserProfile {
         boolean readingIngredients = false;
         boolean readingInstructions = false;
         boolean readingAggregated = false;
+        boolean readingFoodLog = false;
         double aggCalories = -1;
         double aggProtein = -1;
         double aggCarbs = -1;
@@ -194,6 +300,43 @@ public class UserProfile {
 
         for (String line : lines) {
             line = line.trim();
+
+            if (line.startsWith("Daily Goals:")) {
+                readingFoodLog = false;
+                continue;
+            } else if (line.startsWith("Calories:") && !readingAggregated && !readingIngredients && !readingInstructions) {
+                try {
+                    profile.dailyCalorieGoal = Double.parseDouble(line.substring("Calories:".length()).trim().replace(" g", ""));
+                } catch (NumberFormatException e) { }
+                continue;
+            } else if (line.startsWith("Protein:") && !readingAggregated && !readingIngredients && !readingInstructions) {
+                try {
+                    profile.dailyProteinGoal = Double.parseDouble(line.substring("Protein:".length()).trim().replace(" g", ""));
+                } catch (NumberFormatException e) { }
+                continue;
+            } else if (line.startsWith("Carbs:") && !readingAggregated && !readingIngredients && !readingInstructions) {
+                try {
+                    profile.dailyCarbGoal = Double.parseDouble(line.substring("Carbs:".length()).trim().replace(" g", ""));
+                } catch (NumberFormatException e) { }
+                continue;
+            } else if (line.startsWith("Fat:") && !readingAggregated && !readingIngredients && !readingInstructions) {
+                try {
+                    profile.dailyFatGoal = Double.parseDouble(line.substring("Fat:".length()).trim().replace(" g", ""));
+                } catch (NumberFormatException e) { }
+                continue;
+            } else if (line.equals("Food Log:")) {
+                readingFoodLog = true;
+                continue;
+            } else if (readingFoodLog && line.equals("(none)")) {
+                continue;
+            } else if (readingFoodLog && line.startsWith("Entry:")) {
+                try {
+                    profile.foodLogEntries.add(FoodLogEntry.fromStorageLine(line));
+                } catch (RuntimeException e) {
+                    // Skip malformed food log entries.
+                }
+                continue;
+            }
 
             if (line.isEmpty() || line.startsWith("===") || line.startsWith("--")) {
                 // If we were reading an aggregated block, attach it to the current recipe
@@ -212,6 +355,7 @@ public class UserProfile {
                 readingIngredients = false;
                 readingInstructions = false;
                 readingAggregated = false;
+                readingFoodLog = false;
                 // reset aggregated vars
                 aggCalories = aggProtein = aggCarbs = aggFat = -1;
                 continue;
