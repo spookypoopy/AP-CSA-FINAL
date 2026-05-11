@@ -34,9 +34,139 @@ Console-based USDA food search app and personal recipe manager for AP CSA.
 - ✅ **Object-Oriented Design**: Inheritance-ready structure, clear separation of concerns
 
 ## Architecture Overview
-Class diagram (Mermaid) moved to a separate file: [diagrams/class_diagram.mmd](diagrams/class_diagram.mmd)
+```mermaid
+classDiagram
+  class FoodSearchApp {
+    -String API_KEY
+    -String BASE_URL
+    -int API_PAGE_SIZE
+    -int DISPLAY_PAGE_SIZE
+    -FoodApiClient apiClient
+    -FoodParser parser
+    +FoodSearchApp()
+    +searchFoods(query) List~FoodResult~
+    +getNutritionForFood(fdcId) NutritionInfo
+    -displayResultsWithPagination(results, scanner) FoodResult
+    -displayNutritionInfo(food, nutrition) void
+    -handleRecipeCreation(scanner, userProfile) void
+    -displayUserRecipes(scanner, userProfile) void
+    -runSearchMode(scanner) boolean
+    +main(args) void
+  }
 
-If you'd like a rendered image in the repo (SVG/PNG), I can generate one and add it; tell me which format you prefer.
+  class FoodApiClient {
+    -String apiKey
+    -String baseUrl
+    -int pageSize
+    +FoodApiClient(apiKey, baseUrl, pageSize)
+    +fetchFoodsJson(query) String
+    +fetchFoodDetailsJson(fdcId) String
+    -sendGetRequest(url) String
+    -readStream(stream) String
+  }
+
+  class FoodParser {
+    -String FDC_ID_KEY
+    -String DESCRIPTION_KEY
+    -String CALORIES_NUMBER
+    -String PROTEIN_NUMBER
+    -String CARB_NUMBER
+    -String FAT_NUMBER
+    -String FIBER_NUMBER
+    -String SUGAR_NUMBER
+    +parseFoods(json) List~FoodResult~
+    +parseNutritionInfo(json) NutritionInfo
+    +parseIngredients(json) String
+    -findAmountByNutrientNumber(json, nutrientNumber) double
+    -findStringEnd(text, start) int
+    -unescape(text) String
+  }
+
+  class FoodResult {
+    -int fdcId
+    -String description
+    +FoodResult(fdcId, description)
+    +getFdcId() int
+    +getDescription() String
+    +toString() String
+  }
+
+  class NutritionInfo {
+    -double calories
+    -double protein
+    -double carbs
+    -double fat
+    -double fiber
+    -double sugar
+    -String ingredients
+    +NutritionInfo(calories, protein, carbs, fat, ingredients, fiber, sugar)
+    +getCalories() double
+    +getProtein() double
+    +getCarbs() double
+    +getFat() double
+    +getFiber() double
+    +getSugar() double
+    +getIngredients() String
+  }
+
+  class Recipe {
+    -String recipeName
+    -List~String~ ingredients
+    -List~String~ instructions
+    -double caloriesEstimate
+    -double totalCalories
+    -double totalProtein
+    -double totalCarbs
+    -double totalFat
+    +Recipe(recipeName)
+    +addIngredient(ingredient) void
+    +addInstruction(instruction) void
+    +addNutrition(info, multiplier) void
+    +getRecipeName() String
+    +getIngredients() List~String~
+    +getInstructions() List~String~
+    +setCaloriesEstimate(calories) void
+    +getCaloriesEstimate() double
+    +getTotalCalories() double
+    +getTotalProtein() double
+    +getTotalCarbs() double
+    +getTotalFat() double
+    +toString() String
+  }
+
+  class UserProfile {
+    -String username
+    -List~Recipe~ recipes
+    -String PROFILES_DIR
+    +UserProfile(username)
+    +addRecipe(recipe) void
+    +removeRecipe(recipeName) boolean
+    +findRecipe(recipeName) Recipe
+    +getRecipes() List~Recipe~
+    +getUsername() String
+    +saveProfile() void
+    +loadProfile(username) UserProfile
+    +displayRecipes() void
+    -getProfileFilename() String
+    -ensureProfilesDirectoryExists() void
+  }
+
+  class TestRecipeAggregation {
+    +main(args) void
+  }
+
+  FoodSearchApp --> FoodApiClient : uses
+  FoodSearchApp --> FoodParser : uses
+  FoodSearchApp --> UserProfile : manages
+  FoodSearchApp --> Recipe : creates
+  FoodParser --> FoodResult : creates
+  FoodParser --> NutritionInfo : creates
+  FoodApiClient --|> FoodSearchApp : provides data
+  UserProfile --> Recipe : stores
+  Recipe --> NutritionInfo : aggregates
+  TestRecipeAggregation --> Recipe : tests
+  TestRecipeAggregation --> NutritionInfo : tests
+```
 
 ## How to Use
 
