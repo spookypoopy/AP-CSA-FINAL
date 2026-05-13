@@ -1,0 +1,11 @@
+=== USER PROFILE ===
+Username: chicken
+Number of Recipes: 0
+Daily Goals:
+  Calories: 2000.0
+  Protein: 150.0 g
+  Carbs: 250.0 g
+  Fat: 70.0 g
+Food Log:
+  (none)
+

@@ -136,8 +136,7 @@ java -cp bin FoodSearchApp
 ### UserProfile.java
 - Manages user profile and recipe collection
 - Handles saving to and loading from `.txt` files
-- Methods: addRecipe
-(), removeRecipe(), findRecipe(), saveProfile(), loadProfile()
+- Methods: addRecipe(), removeRecipe(), findRecipe(), saveProfile(), loadProfile()
 - Maintains list of Recipe objects
 
 ### Updated FoodSearchApp.java
